@@ -39,3 +39,19 @@ für alle im Team per Link erreichbar.
 
 Beim ersten Start sind die Daten aus dem bisherigen Excel als Beispieldaten
 vorausgefüllt (bitte prüfen); mit «Leer starten» beginnt man mit einer leeren Planung.
+
+## CI/CD
+
+Bei jedem Push läuft die GitHub-Actions-Pipeline (`.github/workflows/ci-cd.yml`):
+
+1. **Testen** – `node tests/smoke.js` prüft die JavaScript-Syntax der App und
+   lässt den Planungsalgorithmus über die Beispieldaten laufen (keine
+   Doppelbuchungen, fixierte Termine bleiben bestehen).
+2. **Veröffentlichen** – bei erfolgreichem Test wird `index.html` automatisch
+   auf **GitHub Pages** deployt. Das Tool ist danach unter
+   `https://stibe881.github.io/Planung-IFG/` erreichbar – dieser Link kann
+   direkt ans Team weitergegeben werden.
+
+Voraussetzung (einmalig): Falls das erste Deployment fehlschlägt, in den
+Repository-Einstellungen unter **Settings → Pages** als Source
+«GitHub Actions» wählen. Pull Requests durchlaufen nur den Test-Schritt.
