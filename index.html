@@ -314,7 +314,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
 
 <main>
   <div class="banner" id="sample-banner" hidden>
-    <div><strong>Beispieldaten geladen.</strong> Namen, Zeitfenster und R‑Zuordnungen wurden aus eurem bisherigen Excel übernommen – bitte vor der Planung kontrollieren. Alle Änderungen werden automatisch im Browser gespeichert.</div>
+    <div><strong>Beispieldaten geladen.</strong> Alle Namen sind frei erfunden; Zeitfenster und Zuordnungsstruktur entsprechen dem bisherigen Excel. Trage die echten Namen hier ein – sie werden nur lokal in deinem Browser gespeichert und nie übertragen.</div>
     <button class="btn small" id="btn-clear-all">Leer starten</button>
   </div>
 
@@ -410,8 +410,9 @@ let uid = 1;
 const newId = p => p + "_" + (uid++) + "_" + Math.random().toString(36).slice(2, 7);
 
 function sampleData(){
-  const studentNames = ["Allawah Kusai","Ehrler Alex","Azazi Senai","Betschart Maleah","Meiehrhofer Elea","Fernandez Julian","Hellwig Laura","Rodrigues Ella","Szakacs Kathrin","von Allmen Ben","Wismer Elia","Zulji Namik"];
-  const staffNames = ["Annen Helga","Blaser Chantal","Furrer Lulu","Hellmüller Vera","Lima Judith","Mathis Nadja","Noack Aline","Trampenau Lucia","Wanja Lochmann","Westermann Claudia","Weiss Reto","Suppiger Christian","Kern Ariane","Buob Nathalis","Nuez Eddy","Lurk Silvana","Caratelli Vanessa","Morriggia Kathrin","Burch Linda","Galoppe Katharina","Bühlmann Anna"];
+  // Frei erfundene Beispielnamen – echte Namen werden lokal im Browser erfasst
+  const studentNames = ["Achermann Livia","Berger Nino","Candinas Mara","Dubach Leon","Egger Alina","Frei Timo","Gasser Elin","Huber Sana","Imhof Kim","Jenni Silas","Koller Nora","Lang Remo"];
+  const staffNames = ["Meier Anna","Nussbaum Beat","Odermatt Clara","Portmann David","Quenet Eva","Rüegg Felix","Schmid Gina","Tanner Hanna","Ulrich Ines","Vogel Jan","Wyss Karin","Zbinden Luca","Ammann Mia","Bianchi Noe","Camenzind Ora","Dietrich Pia","Eichholzer Quirin","Fankhauser Rita","Graf Sven","Hofer Tina","Iten Urs"];
   const students = studentNames.map(n => ({id:newId("sc"), name:n}));
   const staff = staffNames.map(n => ({id:newId("ma"), name:n}));
   const slots = [
@@ -422,7 +423,7 @@ function sampleData(){
     {date:"2026-10-26", start:"16:15", end:"17:10"},
     {date:"2026-10-26", start:"17:15", end:"18:10"}
   ].map(s => ({id:newId("sl"), ...s}));
-  // Zuordnung aus dem bisherigen Excel: Index der Mitarbeiter*in -> Indizes der Schüler*innen
+  // Zuordnungsstruktur wie im bisherigen Excel: Index der Mitarbeiter*in -> Indizes der Schüler*innen
   const reqByStaff = {
     0:[0,2,3,4,8,9], 1:[5,7], 2:[9,10], 3:[0,1,2,3,4,5,6,7,11], 4:[1,4,5,6,7,11],
     5:[3,10], 6:[0,4,5,9], 7:[0,3,5,6,7], 8:[0], 9:[0,2,3,8,9,10], 10:[0],

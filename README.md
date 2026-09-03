@@ -37,8 +37,10 @@ für alle im Team per Link erreichbar.
 - **Plan als CSV exportieren**: öffnet sich direkt in Excel (Semikolon-getrennt).
 - **Drucken**: druckt die Planungsansicht als übersichtlichen Gesprächsplan.
 
-Beim ersten Start sind die Daten aus dem bisherigen Excel als Beispieldaten
-vorausgefüllt (bitte prüfen); mit «Leer starten» beginnt man mit einer leeren Planung.
+Beim ersten Start ist das Tool mit Beispieldaten vorausgefüllt (frei erfundene
+Namen; Zeitfenster und Zuordnungsstruktur wie im bisherigen Excel). Echte Namen
+werden lokal im Browser erfasst und nie übertragen. Mit «Leer starten» beginnt
+man mit einer leeren Planung.
 
 ## CI/CD
 
