@@ -36,6 +36,7 @@
   --shadow:0 1px 3px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box}
+html{overflow-x:clip}
 body{
   background:var(--bg); color:var(--ink); margin:0;
   font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -133,17 +134,19 @@ ul.plain li .meta{color:var(--muted); font-size:.8rem}
 .iconbtn.edit:hover{color:var(--accent); background:var(--accent-soft)}
 .addrow{display:flex; gap:8px; flex-wrap:wrap}
 .addrow input[type=text]{flex:1; min-width:140px}
-.addrow.slots{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.addrow.slots{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px}
 .addrow.slots .btn{grid-column:1 / -1}
 label.fld{font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; gap:3px; min-width:0}
 label.fld.wide{grid-column:1 / -1}
-label.fld input{width:100%; min-height:38px}
+label.fld input{width:100%; min-width:0; min-height:38px}
 fieldset.series{
   border:1px dashed var(--line-strong); border-radius:10px; margin:14px 0 0; padding:10px 12px 12px;
+  min-width:0; /* fieldsets schrumpfen sonst nie unter ihre Inhaltsbreite */
 }
 fieldset.series legend{font-size:.8rem; color:var(--muted); padding:0 6px}
-fieldset.series .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
-fieldset.series label{font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; gap:3px}
+fieldset.series .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px}
+fieldset.series label{font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; gap:3px; min-width:0}
+fieldset.series input{width:100%; min-width:0}
 fieldset.series .btn{margin-top:10px}
 
 .matrixwrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--shadow)}
