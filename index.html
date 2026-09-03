@@ -858,7 +858,19 @@ $("#btn-clear-all").addEventListener("click", () => {
 });
 
 /* ---------- Export / Import ---------- */
+// Im Artifact-Viewer laufen Downloads über die downloads-Fähigkeit; als
+// lokale Datei geöffnet greift der klassische Download-Link.
+let downloadsNS = null;
+if(window.claude && typeof window.claude.use === "function"){
+  window.claude.use("downloads").then(d => { downloadsNS = d; }).catch(() => {});
+}
 function download(filename, text, mime){
+  if(downloadsNS){
+    downloadsNS.save({filename, data:text}).catch(err => {
+      if(err && err.code !== "declined") toast("Speichern nicht möglich: " + (err.message || err.code || err));
+    });
+    return;
+  }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([text], {type:mime}));
   a.download = filename;
