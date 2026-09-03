@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gesprächsplaner IFG</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F6F7F5; --surface:#FFFFFF; --surface2:#EEF1EF; --ink:#212A2E; --muted:#5C6B70;
+  --line:#DCE2E0; --line-strong:#B9C3C0;
+  --accent:#2F5A73; --accent-ink:#FFFFFF; --accent-soft:#E3ECF2;
+  --req:#C2453A; --req-soft:#F9E4E1; --req-ink:#8C2A22;
+  --ok:#2F7D53; --ok-soft:#E1F0E6; --ok-ink:#1F5C3B;
+  --warn:#B57C1F; --warn-soft:#F7EDD8; --warn-ink:#7C5410;
+  --shadow:0 1px 3px rgba(33,42,46,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171D20; --surface:#1F2629; --surface2:#262E32; --ink:#E6EBEA; --muted:#95A4A8;
+    --line:#333D41; --line-strong:#4A585D;
+    --accent:#6FA3C2; --accent-ink:#12222C; --accent-soft:#2A3A44;
+    --req:#E2695E; --req-soft:#462723; --req-ink:#F0A29A;
+    --ok:#5CB784; --ok-soft:#1F3A2B; --ok-ink:#9BD9B6;
+    --warn:#D9A648; --warn-soft:#403627; --warn-ink:#E8C98A;
+    --shadow:0 1px 3px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171D20; --surface:#1F2629; --surface2:#262E32; --ink:#E6EBEA; --muted:#95A4A8;
+  --line:#333D41; --line-strong:#4A585D;
+  --accent:#6FA3C2; --accent-ink:#12222C; --accent-soft:#2A3A44;
+  --req:#E2695E; --req-soft:#462723; --req-ink:#F0A29A;
+  --ok:#5CB784; --ok-soft:#1F3A2B; --ok-ink:#9BD9B6;
+  --warn:#D9A648; --warn-soft:#403627; --warn-ink:#E8C98A;
+  --shadow:0 1px 3px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); margin:0;
+  font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.5;
+}
+.mono{font-family:"Spline Sans Mono","SF Mono",Consolas,monospace}
+header.app{
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  padding:18px 28px 14px; border-bottom:1px solid var(--line); background:var(--surface);
+}
+header.app h1{
+  font-family:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;
+  font-size:1.45rem; font-weight:700; margin:0; letter-spacing:-.01em; text-wrap:balance;
+}
+header.app .sub{color:var(--muted); font-size:.85rem; margin-top:2px}
+header.app .spacer{flex:1}
+nav.tabs{
+  display:flex; gap:4px; padding:0 28px; background:var(--surface);
+  border-bottom:1px solid var(--line); overflow-x:auto;
+}
+nav.tabs button{
+  appearance:none; border:none; background:none; color:var(--muted);
+  font:inherit; font-weight:600; padding:12px 14px 10px; cursor:pointer;
+  border-bottom:3px solid transparent; white-space:nowrap;
+}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button.active{color:var(--accent); border-bottom-color:var(--accent)}
+nav.tabs button:focus-visible, .btn:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+nav.tabs button .step{
+  display:inline-grid; place-items:center; width:20px; height:20px; margin-right:7px;
+  border-radius:50%; background:var(--surface2); color:var(--muted);
+  font-size:.75rem; font-weight:600; vertical-align:-3px;
+}
+nav.tabs button.active .step{background:var(--accent); color:var(--accent-ink)}
+main{padding:24px 28px 80px; max-width:1280px; margin:0 auto}
+section.tabpane[hidden]{display:none}
+h2{
+  font-family:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif;
+  font-size:1.15rem; font-weight:700; margin:0 0 4px; letter-spacing:-.01em;
+}
+.hint{color:var(--muted); font-size:.88rem; margin:0 0 16px; max-width:70ch}
+.btn{
+  appearance:none; font:inherit; font-weight:600; cursor:pointer;
+  border:1px solid var(--line-strong); border-radius:8px; padding:7px 14px;
+  background:var(--surface); color:var(--ink);
+}
+.btn:hover{border-color:var(--accent); color:var(--accent)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08); color:var(--accent-ink)}
+.btn.small{padding:4px 10px; font-size:.85rem}
+.btn.danger:hover{border-color:var(--req); color:var(--req)}
+input[type=text],input[type=date],input[type=time],input[type=number],select{
+  font:inherit; color:var(--ink); background:var(--surface);
+  border:1px solid var(--line-strong); border-radius:8px; padding:6px 10px;
+}
+input[type=time],input[type=date],input[type=number]{font-family:"Spline Sans Mono",monospace; font-size:.9rem}
+
+.banner{
+  display:flex; gap:12px; align-items:flex-start; margin:0 0 20px;
+  background:var(--warn-soft); color:var(--warn-ink);
+  border:1px solid var(--warn); border-radius:10px; padding:10px 14px; font-size:.9rem;
+}
+.banner .btn{margin-left:auto; flex-shrink:0}
+
+.cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px; align-items:start}
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  box-shadow:var(--shadow); padding:16px 18px;
+}
+.card h3{
+  margin:0 0 2px; font-size:1rem; font-weight:600;
+  display:flex; align-items:baseline; gap:8px;
+}
+.card h3 .count{color:var(--muted); font-weight:500; font-size:.85rem}
+.card .cardhint{color:var(--muted); font-size:.82rem; margin:0 0 12px}
+ul.plain{list-style:none; margin:0 0 12px; padding:0; display:flex; flex-direction:column}
+ul.plain li{
+  display:flex; align-items:center; gap:8px; padding:5px 2px;
+  border-bottom:1px solid var(--line); font-size:.92rem;
+}
+ul.plain li:last-child{border-bottom:none}
+ul.plain li .nm{flex:1; min-width:0; overflow-wrap:anywhere}
+ul.plain li .meta{color:var(--muted); font-size:.8rem}
+.iconbtn{
+  appearance:none; border:none; background:none; cursor:pointer; color:var(--muted);
+  font:inherit; font-size:.85rem; padding:2px 6px; border-radius:6px; flex-shrink:0;
+}
+.iconbtn:hover{color:var(--req); background:var(--req-soft)}
+.iconbtn.edit:hover{color:var(--accent); background:var(--accent-soft)}
+.addrow{display:flex; gap:8px; flex-wrap:wrap}
+.addrow input[type=text]{flex:1; min-width:140px}
+.addrow.slots{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.addrow.slots input[type=date]{grid-column:1 / -1}
+.addrow.slots .btn{grid-column:1 / -1}
+fieldset.series{
+  border:1px dashed var(--line-strong); border-radius:10px; margin:14px 0 0; padding:10px 12px 12px;
+}
+fieldset.series legend{font-size:.8rem; color:var(--muted); padding:0 6px}
+fieldset.series .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+fieldset.series label{font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; gap:3px}
+fieldset.series .btn{margin-top:10px}
+
+.matrixwrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--shadow)}
+table.matrix{border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; font-size:.88rem}
+table.matrix th, table.matrix td{border-bottom:1px solid var(--line); padding:0}
+table.matrix thead th{
+  vertical-align:bottom; background:var(--surface2); position:sticky; top:0; z-index:2;
+  border-left:1px solid var(--line); padding:8px 4px 6px; font-weight:600;
+}
+table.matrix thead th.rowhead{border-left:none}
+table.matrix thead th .vert{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  max-height:150px; min-height:90px; margin:0 auto;
+  display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:.82rem;
+}
+table.matrix tbody th{
+  text-align:left; font-weight:500; padding:6px 12px; white-space:nowrap;
+  position:sticky; left:0; background:var(--surface); z-index:1;
+  border-right:1px solid var(--line);
+}
+table.matrix tbody tr:hover th{background:var(--surface2)}
+table.matrix td{border-left:1px solid var(--line); text-align:center}
+table.matrix td button.cell{
+  appearance:none; border:none; background:none; cursor:pointer;
+  width:100%; min-width:34px; height:32px; display:block;
+  font-family:"Spline Sans Mono",monospace; font-weight:600; font-size:.85rem;
+  color:transparent; border-radius:0;
+}
+table.matrix td button.cell:hover{background:var(--accent-soft)}
+table.matrix td button.cell.req{background:var(--req); color:#FFFFFF}
+table.matrix td button.cell.req:hover{filter:brightness(1.1)}
+table.matrix td button.cell.avail{background:var(--ok); color:#FFFFFF}
+table.matrix td button.cell.avail:hover{filter:brightness(1.1)}
+table.matrix td button.cell.blocked{background:var(--req-soft); color:var(--req-ink)}
+table.matrix tfoot td, table.matrix tfoot th{
+  border-top:2px solid var(--line-strong); border-bottom:none; color:var(--muted);
+  font-size:.78rem; padding:5px 4px; text-align:center; background:var(--surface);
+}
+table.matrix tfoot th{text-align:left; padding-left:12px; position:sticky; left:0}
+.legend{display:flex; gap:18px; flex-wrap:wrap; margin:10px 2px 0; font-size:.82rem; color:var(--muted)}
+.legend .sw{
+  display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:6px;
+  border:1px solid var(--line-strong);
+}
+
+.planbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:0 0 18px}
+.planbar .note{color:var(--muted); font-size:.85rem}
+.diag{margin:0 0 18px; display:flex; flex-direction:column; gap:8px}
+.diag .item{
+  border-radius:10px; padding:9px 14px; font-size:.88rem;
+  border:1px solid var(--warn); background:var(--warn-soft); color:var(--warn-ink);
+}
+.diag .item.err{border-color:var(--req); background:var(--req-soft); color:var(--req-ink)}
+.diag .item.ok{border-color:var(--ok); background:var(--ok-soft); color:var(--ok-ink)}
+
+.summary{display:flex; gap:14px; flex-wrap:wrap; margin:0 0 18px}
+.pill{
+  display:inline-flex; align-items:center; gap:8px; border-radius:999px;
+  padding:6px 14px; font-size:.88rem; font-weight:600; border:1px solid var(--line);
+  background:var(--surface);
+}
+.pill .dot{width:9px; height:9px; border-radius:50%}
+.pill.ok .dot{background:var(--ok)} .pill.ok{color:var(--ok-ink); background:var(--ok-soft); border-color:var(--ok)}
+.pill.bad .dot{background:var(--req)} .pill.bad{color:var(--req-ink); background:var(--req-soft); border-color:var(--req)}
+.pill.fix .dot{background:var(--accent)} .pill.fix{color:var(--accent); background:var(--accent-soft); border-color:var(--accent)}
+
+table.result{
+  border-collapse:collapse; width:100%; background:var(--surface);
+  border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow);
+  font-size:.9rem;
+}
+table.result th, table.result td{padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+table.result thead th{
+  background:var(--surface2); font-size:.78rem; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--muted); font-weight:600;
+}
+table.result tbody tr:last-child td{border-bottom:none}
+table.result .slotcell{white-space:nowrap}
+table.result .staffs{color:var(--muted); font-size:.84rem}
+.status{
+  display:inline-block; border-radius:6px; padding:1px 8px; font-size:.78rem; font-weight:600;
+}
+.status.ok{background:var(--ok-soft); color:var(--ok-ink)}
+.status.bad{background:var(--req-soft); color:var(--req-ink)}
+.status.fix{background:var(--accent-soft); color:var(--accent)}
+.why{color:var(--req-ink); font-size:.82rem}
+
+.slotgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin-top:22px}
+.slotcard{background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); overflow:hidden}
+.slotcard header{
+  padding:10px 14px; background:var(--surface2); border-bottom:1px solid var(--line);
+  display:flex; align-items:baseline; gap:10px;
+}
+.slotcard header .when{font-weight:600}
+.slotcard header .cnt{margin-left:auto; color:var(--muted); font-size:.8rem}
+.slotcard ul{list-style:none; margin:0; padding:6px 14px 10px}
+.slotcard li{padding:7px 0; border-bottom:1px solid var(--line)}
+.slotcard li:last-child{border-bottom:none}
+.slotcard li .who{font-weight:600}
+.slotcard li .with{color:var(--muted); font-size:.83rem; margin-top:1px}
+.slotcard .empty{color:var(--muted); font-size:.85rem; font-style:italic; padding:10px 0}
+
+.toolbar-msg{
+  position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+  background:var(--ink); color:var(--bg); border-radius:10px; padding:9px 18px;
+  font-size:.9rem; box-shadow:0 4px 16px rgba(0,0,0,.25); opacity:0; pointer-events:none;
+  transition:opacity .25s;
+}
+.toolbar-msg.show{opacity:1}
+@media (prefers-reduced-motion: reduce){ .toolbar-msg{transition:none} }
+
+@media print{
+  header.app, nav.tabs, .planbar, .banner, .legend, .toolbar-msg, .diag, .noprint{display:none !important}
+  body{background:#FFFFFF; color:#000000; font-size:12px}
+  main{padding:0; max-width:none}
+  section.tabpane[hidden]{display:none !important}
+  #pane-plan{display:block !important}
+  .printtitle{display:block !important; font-size:16px; font-weight:700; margin:0 0 12px}
+  table.result, .slotcard{box-shadow:none; border-color:#999999}
+  table.result select{border:none; background:none; appearance:none; font:inherit; padding:0}
+}
+.printtitle{display:none}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div>
+    <h1>Gesprächsplaner IFG</h1>
+    <div class="sub">Schüler*innen‑Gespräche planen: Wer muss dabei sein, wer kann wann – und welches Zeitfenster passt?</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn small" id="btn-export-json" title="Alle Daten als Datei sichern">Daten sichern</button>
+  <button class="btn small" id="btn-import-json">Daten laden</button>
+  <input type="file" id="file-import" accept="application/json" hidden>
+  <button class="btn small" id="btn-print">Drucken</button>
+</header>
+
+<nav class="tabs" aria-label="Arbeitsschritte">
+  <button data-tab="daten" class="active"><span class="step">1</span>Stammdaten</button>
+  <button data-tab="matrix"><span class="step">2</span>Zuordnung (R)</button>
+  <button data-tab="verfueg"><span class="step">3</span>Verfügbarkeit (A)</button>
+  <button data-tab="plan"><span class="step">4</span>Planung</button>
+</nav>
+
+<main>
+  <div class="banner" id="sample-banner" hidden>
+    <div><strong>Beispieldaten geladen.</strong> Namen, Zeitfenster und R‑Zuordnungen wurden aus eurem bisherigen Excel übernommen – bitte vor der Planung kontrollieren. Alle Änderungen werden automatisch im Browser gespeichert.</div>
+    <button class="btn small" id="btn-clear-all">Leer starten</button>
+  </div>
+
+  <section class="tabpane" id="pane-daten">
+    <h2>Stammdaten</h2>
+    <p class="hint">Hier pflegst du die drei Grössen der Planung: die Schüler*innen (jede*r bekommt genau ein Gespräch), die Mitarbeiter*innen und die möglichen Zeitfenster.</p>
+    <div class="cols">
+      <div class="card">
+        <h3>Schüler*innen <span class="count" id="cnt-students"></span></h3>
+        <p class="cardhint">Für jede*n wird genau ein Gesprächstermin gesucht.</p>
+        <ul class="plain" id="list-students"></ul>
+        <div class="addrow">
+          <input type="text" id="inp-student" placeholder="Name, Vorname" aria-label="Neue*r Schüler*in">
+          <button class="btn" id="btn-add-student">Hinzufügen</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Mitarbeiter*innen <span class="count" id="cnt-staff"></span></h3>
+        <p class="cardhint">Lehr‑ und Fachpersonen, die an Gesprächen teilnehmen.</p>
+        <ul class="plain" id="list-staff"></ul>
+        <div class="addrow">
+          <input type="text" id="inp-staff" placeholder="Name, Vorname" aria-label="Neue*r Mitarbeiter*in">
+          <button class="btn" id="btn-add-staff">Hinzufügen</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Zeitfenster <span class="count" id="cnt-slots"></span></h3>
+        <p class="cardhint">Mögliche Gesprächstermine. Pro Zeitfenster können mehrere Gespräche parallel stattfinden, solange sich die Mitarbeiter*innen nicht überschneiden.</p>
+        <ul class="plain mono" id="list-slots"></ul>
+        <div class="addrow slots">
+          <input type="date" id="inp-slot-date" aria-label="Datum">
+          <input type="time" id="inp-slot-start" aria-label="Startzeit">
+          <input type="time" id="inp-slot-end" aria-label="Endzeit">
+          <button class="btn" id="btn-add-slot">Zeitfenster hinzufügen</button>
+        </div>
+        <fieldset class="series">
+          <legend>Serie erzeugen</legend>
+          <div class="grid">
+            <label>Datum <input type="date" id="ser-date"></label>
+            <label>Erste Startzeit <input type="time" id="ser-start" value="13:00"></label>
+            <label>Dauer (Min.) <input type="number" id="ser-dur" value="55" min="5" step="5"></label>
+            <label>Pause (Min.) <input type="number" id="ser-gap" value="5" min="0" step="5"></label>
+            <label>Anzahl Fenster <input type="number" id="ser-count" value="4" min="1" max="20"></label>
+          </div>
+          <button class="btn small" id="btn-series">Serie hinzufügen</button>
+        </fieldset>
+      </div>
+    </div>
+  </section>
+
+  <section class="tabpane" id="pane-matrix" hidden>
+    <h2>Zuordnung: Wer muss zu welchem Gespräch?</h2>
+    <p class="hint">Klicke auf eine Zelle, um eine Mitarbeiter*in (Zeile) dem Gespräch einer Schüler*in (Spalte) zuzuordnen – das <strong>R</strong> entspricht eurem bisherigen Excel. Alle markierten Personen müssen am Gespräch teilnehmen können.</p>
+    <div class="matrixwrap" id="matrix-req"></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--req)"></span>R = nimmt am Gespräch teil</span>
+      <span><span class="sw" style="background:var(--surface)"></span>leer = nicht beteiligt</span>
+    </div>
+  </section>
+
+  <section class="tabpane" id="pane-verfueg" hidden>
+    <h2>Verfügbarkeit der Mitarbeiter*innen</h2>
+    <p class="hint">Standardmässig sind alle überall verfügbar (<strong>A</strong>). Klicke auf eine Zelle, wenn jemand in einem Zeitfenster <em>nicht</em> kann. Die Zeile rechts zeigt, ob die Verfügbarkeit für die Zahl der zugeordneten Gespräche überhaupt reicht.</p>
+    <div class="matrixwrap" id="matrix-avail"></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--ok)"></span>A = verfügbar</span>
+      <span><span class="sw" style="background:var(--req-soft)"></span>× = nicht verfügbar</span>
+    </div>
+  </section>
+
+  <section class="tabpane" id="pane-plan" hidden>
+    <div class="printtitle">Gesprächsplan Schüler*innen‑Gespräche IFG</div>
+    <h2>Planung</h2>
+    <p class="hint">Der Planer sucht für jede*n Schüler*in ein Zeitfenster, in dem alle zugeordneten Mitarbeiter*innen verfügbar und nicht schon in einem anderen Gespräch gebunden sind. Bereits vereinbarte Termine kannst du in der Tabelle fixieren – sie bleiben bei jeder Neuberechnung bestehen.</p>
+    <div class="planbar">
+      <button class="btn primary" id="btn-solve">Termine planen</button>
+      <button class="btn" id="btn-export-csv">Plan als CSV exportieren</button>
+      <span class="note" id="plan-ts"></span>
+    </div>
+    <div class="diag" id="diag"></div>
+    <div class="summary" id="summary"></div>
+    <div id="result-table"></div>
+    <div class="slotgrid" id="slot-cards"></div>
+  </section>
+</main>
+
+<div class="toolbar-msg" id="toast" role="status"></div>
+
+<script>
+"use strict";
+const LS_KEY = "ifg-gespraechsplaner-v1";
+let uid = 1;
+const newId = p => p + "_" + (uid++) + "_" + Math.random().toString(36).slice(2, 7);
+
+function sampleData(){
+  const studentNames = ["Allawah Kusai","Ehrler Alex","Azazi Senai","Betschart Maleah","Meiehrhofer Elea","Fernandez Julian","Hellwig Laura","Rodrigues Ella","Szakacs Kathrin","von Allmen Ben","Wismer Elia","Zulji Namik"];
+  const staffNames = ["Annen Helga","Blaser Chantal","Furrer Lulu","Hellmüller Vera","Lima Judith","Mathis Nadja","Noack Aline","Trampenau Lucia","Wanja Lochmann","Westermann Claudia","Weiss Reto","Suppiger Christian","Kern Ariane","Buob Nathalis","Nuez Eddy","Lurk Silvana","Caratelli Vanessa","Morriggia Kathrin","Burch Linda","Galoppe Katharina","Bühlmann Anna"];
+  const students = studentNames.map(n => ({id:newId("sc"), name:n}));
+  const staff = staffNames.map(n => ({id:newId("ma"), name:n}));
+  const slots = [
+    {date:"2026-10-21", start:"13:00", end:"13:55"},
+    {date:"2026-10-21", start:"14:00", end:"14:55"},
+    {date:"2026-10-21", start:"15:00", end:"15:55"},
+    {date:"2026-10-21", start:"16:00", end:"16:55"},
+    {date:"2026-10-26", start:"16:15", end:"17:10"},
+    {date:"2026-10-26", start:"17:15", end:"18:10"}
+  ].map(s => ({id:newId("sl"), ...s}));
+  // Zuordnung aus dem bisherigen Excel: Index der Mitarbeiter*in -> Indizes der Schüler*innen
+  const reqByStaff = {
+    0:[0,2,3,4,8,9], 1:[5,7], 2:[9,10], 3:[0,1,2,3,4,5,6,7,11], 4:[1,4,5,6,7,11],
+    5:[3,10], 6:[0,4,5,9], 7:[0,3,5,6,7], 8:[0], 9:[0,2,3,8,9,10], 10:[0],
+    11:[0,1,6,7,11], 12:[0,2,3,8,9,10], 13:[1,4,5,6,7,11], 14:[9,10], 15:[1,6],
+    16:[4,9], 17:[2,8], 18:[2,5,7,10], 19:[0,1,2,4,8,9,11]
+  };
+  const req = {};
+  for(const [mi, list] of Object.entries(reqByStaff)){
+    for(const si of list){
+      const sid = students[si].id;
+      (req[sid] = req[sid] || {})[staff[mi].id] = 1;
+    }
+  }
+  return {students, staff, slots, req, unavail:{}, fixed:{}, plan:null, sample:true};
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return null;
+    const d = JSON.parse(raw);
+    if(!d || !Array.isArray(d.students)) return null;
+    return {students:[], staff:[], slots:[], req:{}, unavail:{}, fixed:{}, plan:null, sample:false, ...d};
+  }catch(e){ return null; }
+}
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }catch(e){ /* z.B. privates Fenster */ }
+}
+let S = load() || sampleData();
+
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const WEEKDAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+function fmtDate(iso){
+  const [y,m,d] = iso.split("-").map(Number);
+  const wd = WEEKDAYS[new Date(y, m-1, d).getDay()];
+  return wd + " " + String(d).padStart(2,"0") + "." + String(m).padStart(2,"0") + "." + y;
+}
+const slotLabel = sl => fmtDate(sl.date) + " · " + sl.start + "–" + sl.end;
+const slotShort = sl => fmtDate(sl.date).slice(0,2) + " " + sl.start;
+const byName = (a,b) => a.name.localeCompare(b.name, "de");
+const slotSort = (a,b) => (a.date+a.start).localeCompare(b.date+b.start);
+
+const reqStaffIds = studentId =>
+  S.staff.filter(m => (S.req[studentId]||{})[m.id]).map(m => m.id);
+const isAvail = (staffId, slotId) => !((S.unavail[staffId]||{})[slotId]);
+function candidateSlots(studentId){
+  const need = reqStaffIds(studentId);
+  return S.slots.filter(sl => need.every(mid => isAvail(mid, sl.id))).map(sl => sl.id);
+}
+
+let toastTimer = null;
+function toast(msg){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ---------- Planungsalgorithmus ---------- */
+function solvePlan(){
+  const slotIds = S.slots.map(sl => sl.id);
+  const busy = {};                       // slotId -> Set(staffId)
+  slotIds.forEach(id => busy[id] = new Set());
+  const assign = {};                     // studentId -> slotId | null
+  const warnings = [];
+
+  // 1) Fixierte Termine zuerst – sie gelten immer, Konflikte werden gemeldet
+  for(const st of S.students){
+    const fixedSlot = S.fixed[st.id];
+    if(!fixedSlot) continue;
+    if(!slotIds.includes(fixedSlot)){ delete S.fixed[st.id]; continue; }
+    const need = reqStaffIds(st.id);
+    const sl = S.slots.find(x => x.id === fixedSlot);
+    for(const mid of need){
+      const m = S.staff.find(x => x.id === mid);
+      if(!isAvail(mid, fixedSlot))
+        warnings.push(`Fixierter Termin: ${m.name} ist am ${slotLabel(sl)} als nicht verfügbar markiert (Gespräch ${st.name}).`);
+      else if(busy[fixedSlot].has(mid))
+        warnings.push(`Fixierter Termin: ${m.name} ist am ${slotLabel(sl)} doppelt gebucht (u.a. Gespräch ${st.name}).`);
+    }
+    need.forEach(mid => busy[fixedSlot].add(mid));
+    assign[st.id] = fixedSlot;
+  }
+
+  // 2) Übrige Schüler*innen: erst die mit Zuordnungen (Backtracking), dann die freien
+  const open = S.students.filter(st => !(st.id in assign));
+  const withReq = [], noReq = [];
+  for(const st of open){
+    const need = reqStaffIds(st.id);
+    (need.length ? withReq : noReq).push({id:st.id, need, cands:candidateSlots(st.id)});
+  }
+  withReq.sort((a,b) => a.cands.length - b.cands.length || a.need.length - b.need.length);
+
+  let best = {}, bestCount = -1, nodes = 0;
+  const NODE_CAP = 400000;
+  const cur = {};
+  (function dfs(i, placed){
+    if(nodes++ > NODE_CAP) return;
+    if(placed + (withReq.length - i) <= bestCount) return;
+    if(i === withReq.length){
+      if(placed > bestCount){ bestCount = placed; best = {...cur}; }
+      return;
+    }
+    const st = withReq[i];
+    for(const slId of st.cands){
+      if(st.need.some(mid => busy[slId].has(mid))) continue;
+      st.need.forEach(mid => busy[slId].add(mid));
+      cur[st.id] = slId;
+      dfs(i+1, placed+1);
+      delete cur[st.id];
+      st.need.forEach(mid => busy[slId].delete(mid));
+      if(bestCount === withReq.length) return;
+    }
+    cur[st.id] = null;
+    dfs(i+1, placed);
+    delete cur[st.id];
+  })(0, 0);
+
+  Object.assign(assign, best);
+  // Belegung der besten Lösung nachziehen (busy wurde beim Backtracking zurückgesetzt)
+  for(const st of withReq){
+    const slId = assign[st.id];
+    if(slId) st.need.forEach(mid => busy[slId].add(mid));
+  }
+
+  // 3) Schüler*innen ohne Zuordnung: Fenster mit den wenigsten Gesprächen
+  const countPerSlot = {};
+  slotIds.forEach(id => countPerSlot[id] = 0);
+  for(const sid of Object.keys(assign)) if(assign[sid]) countPerSlot[assign[sid]]++;
+  for(const st of noReq){
+    if(!slotIds.length){ assign[st.id] = null; continue; }
+    const target = [...S.slots].sort((a,b) => countPerSlot[a.id]-countPerSlot[b.id] || slotSort(a,b))[0];
+    assign[st.id] = target.id;
+    countPerSlot[target.id]++;
+  }
+
+  if(nodes > NODE_CAP) warnings.push("Sehr viele Kombinationen – es wurde die beste innerhalb des Rechenlimits gefundene Lösung übernommen.");
+  S.plan = {assignments:assign, ts:Date.now(), warnings};
+  save();
+}
+
+function unplacedReason(studentId){
+  if(!S.slots.length) return "Es sind keine Zeitfenster erfasst.";
+  const cands = candidateSlots(studentId);
+  if(!cands.length) return "Kein Zeitfenster, in dem alle zugeordneten Mitarbeiter*innen verfügbar sind.";
+  return "In allen passenden Zeitfenstern sind Mitarbeiter*innen bereits durch andere Gespräche gebunden.";
+}
+
+/* ---------- Rendering ---------- */
+function renderLists(){
+  $("#sample-banner").hidden = !S.sample;
+  $("#cnt-students").textContent = S.students.length || "";
+  $("#cnt-staff").textContent = S.staff.length || "";
+  $("#cnt-slots").textContent = S.slots.length || "";
+
+  $("#list-students").innerHTML = S.students.map(st => {
+    const n = reqStaffIds(st.id).length;
+    return `<li><span class="nm">${esc(st.name)}</span><span class="meta">${n} MA</span>
+      <button class="iconbtn edit" data-act="rename-student" data-id="${st.id}" title="Umbenennen">✎</button>
+      <button class="iconbtn" data-act="del-student" data-id="${st.id}" title="Entfernen">✕</button></li>`;
+  }).join("") || `<li><span class="nm meta">Noch niemand erfasst.</span></li>`;
+
+  $("#list-staff").innerHTML = S.staff.map(m => {
+    const n = S.students.filter(st => (S.req[st.id]||{})[m.id]).length;
+    return `<li><span class="nm">${esc(m.name)}</span><span class="meta">${n} Gespräche</span>
+      <button class="iconbtn edit" data-act="rename-staff" data-id="${m.id}" title="Umbenennen">✎</button>
+      <button class="iconbtn" data-act="del-staff" data-id="${m.id}" title="Entfernen">✕</button></li>`;
+  }).join("") || `<li><span class="nm meta">Noch niemand erfasst.</span></li>`;
+
+  $("#list-slots").innerHTML = S.slots.map(sl =>
+    `<li><span class="nm">${esc(slotLabel(sl))}</span>
+      <button class="iconbtn" data-act="del-slot" data-id="${sl.id}" title="Entfernen">✕</button></li>`
+  ).join("") || `<li><span class="nm meta">Noch keine Zeitfenster.</span></li>`;
+}
+
+function renderReqMatrix(){
+  const wrap = $("#matrix-req");
+  if(!S.students.length || !S.staff.length){
+    wrap.innerHTML = `<p style="padding:16px;color:var(--muted)">Bitte zuerst Schüler*innen und Mitarbeiter*innen unter «Stammdaten» erfassen.</p>`;
+    return;
+  }
+  let h = `<table class="matrix"><thead><tr><th class="rowhead"></th>`;
+  for(const st of S.students) h += `<th scope="col"><span class="vert">${esc(st.name)}</span></th>`;
+  h += `</tr></thead><tbody>`;
+  for(const m of S.staff){
+    h += `<tr><th scope="row">${esc(m.name)}</th>`;
+    for(const st of S.students){
+      const on = !!(S.req[st.id]||{})[m.id];
+      h += `<td><button class="cell${on?" req":""}" data-act="toggle-req" data-st="${st.id}" data-ma="${m.id}"
+        aria-pressed="${on}" aria-label="${esc(m.name)} bei ${esc(st.name)}">R</button></td>`;
+    }
+    h += `</tr>`;
+  }
+  h += `</tbody><tfoot><tr><th>MA pro Gespräch</th>`;
+  for(const st of S.students) h += `<td class="mono">${reqStaffIds(st.id).length}</td>`;
+  h += `</tr></tfoot></table>`;
+  wrap.innerHTML = h;
+}
+
+function renderAvailMatrix(){
+  const wrap = $("#matrix-avail");
+  if(!S.staff.length || !S.slots.length){
+    wrap.innerHTML = `<p style="padding:16px;color:var(--muted)">Bitte zuerst Mitarbeiter*innen und Zeitfenster unter «Stammdaten» erfassen.</p>`;
+    return;
+  }
+  let h = `<table class="matrix"><thead><tr><th class="rowhead"></th>`;
+  for(const sl of S.slots) h += `<th scope="col"><span class="vert mono">${esc(slotLabel(sl))}</span></th>`;
+  h += `<th scope="col"><span class="vert">Gespräche / verfügbar</span></th></tr></thead><tbody>`;
+  for(const m of S.staff){
+    const needCount = S.students.filter(st => (S.req[st.id]||{})[m.id]).length;
+    let availCount = 0;
+    h += `<tr><th scope="row">${esc(m.name)}</th>`;
+    for(const sl of S.slots){
+      const av = isAvail(m.id, sl.id);
+      if(av) availCount++;
+      h += `<td><button class="cell${av?" avail":" blocked"}" data-act="toggle-avail" data-ma="${m.id}" data-sl="${sl.id}"
+        aria-pressed="${av}" aria-label="${esc(m.name)} am ${esc(slotLabel(sl))}">${av?"A":"×"}</button></td>`;
+    }
+    const short = needCount > availCount;
+    h += `<td class="mono" style="padding:0 10px;${short?"color:var(--req);font-weight:600":"color:var(--muted)"}">${needCount} / ${availCount}${short?" ⚠":""}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  wrap.innerHTML = h;
+}
+
+function renderDiagnostics(){
+  const box = $("#diag");
+  const items = [];
+  if(!S.slots.length) items.push({cls:"err", txt:"Es sind keine Zeitfenster erfasst – bitte unter «Stammdaten» anlegen."});
+  for(const m of S.staff){
+    const needCount = S.students.filter(st => (S.req[st.id]||{})[m.id]).length;
+    const availCount = S.slots.filter(sl => isAvail(m.id, sl.id)).length;
+    if(needCount > availCount)
+      items.push({cls:"err", txt:`${m.name} ist ${needCount} Gesprächen zugeordnet, aber nur in ${availCount} Zeitfenstern verfügbar – es braucht mehr Zeitfenster oder weniger Zuordnungen.`});
+  }
+  for(const st of S.students){
+    if(reqStaffIds(st.id).length && S.slots.length && !candidateSlots(st.id).length)
+      items.push({cls:"warn", txt:`Für ${st.name} gibt es kein Zeitfenster, in dem alle zugeordneten Mitarbeiter*innen verfügbar sind.`});
+  }
+  for(const w of (S.plan?.warnings || [])) items.push({cls:"warn", txt:w});
+  box.innerHTML = items.map(i => `<div class="item ${i.cls==="err"?"err":""}">${esc(i.txt)}</div>`).join("");
+}
+
+function renderPlan(){
+  renderDiagnostics();
+  const tsEl = $("#plan-ts");
+  const tableBox = $("#result-table");
+  const cardsBox = $("#slot-cards");
+  const sumBox = $("#summary");
+  if(!S.plan){
+    tsEl.textContent = "";
+    sumBox.innerHTML = "";
+    cardsBox.innerHTML = "";
+    tableBox.innerHTML = `<p class="hint">Noch kein Plan berechnet. Prüfe Zuordnung und Verfügbarkeit und klicke dann auf «Termine planen».</p>`;
+    return;
+  }
+  const A = S.plan.assignments;
+  const placed = S.students.filter(st => A[st.id]).length;
+  const fixedCount = S.students.filter(st => S.fixed[st.id]).length;
+  const unplaced = S.students.length - placed;
+  tsEl.textContent = "Zuletzt berechnet: " + new Date(S.plan.ts).toLocaleString("de-CH", {dateStyle:"medium", timeStyle:"short"});
+  sumBox.innerHTML =
+    `<span class="pill ok"><span class="dot"></span>${placed} von ${S.students.length} geplant</span>` +
+    (fixedCount ? `<span class="pill fix"><span class="dot"></span>${fixedCount} fixiert</span>` : "") +
+    (unplaced ? `<span class="pill bad"><span class="dot"></span>${unplaced} ohne Termin</span>` : "");
+
+  const slotOptions = st => {
+    const cands = new Set(candidateSlots(st.id));
+    return S.slots.map(sl =>
+      `<option value="${sl.id}" ${A[st.id]===sl.id?"selected":""}>${esc(slotLabel(sl))}${cands.has(sl.id)?"":" (Konflikt)"}</option>`
+    ).join("");
+  };
+  let h = `<table class="result"><thead><tr>
+    <th>Schüler*in</th><th>Termin</th><th>Status</th><th>Mitarbeiter*innen</th></tr></thead><tbody>`;
+  for(const st of [...S.students].sort(byName)){
+    const slId = A[st.id];
+    const isFixed = !!S.fixed[st.id];
+    const staffNames = reqStaffIds(st.id).map(mid => S.staff.find(m => m.id===mid)?.name).filter(Boolean);
+    let status, termin;
+    if(slId){
+      status = isFixed ? `<span class="status fix">fixiert</span>` : `<span class="status ok">geplant</span>`;
+      termin = "";
+    }else{
+      status = `<span class="status bad">kein Termin</span>`;
+      termin = `<div class="why">${esc(unplacedReason(st.id))}</div>`;
+    }
+    h += `<tr><td>${esc(st.name)}</td>
+      <td class="slotcell"><select data-act="fix" data-st="${st.id}" aria-label="Termin für ${esc(st.name)}">
+        <option value="__auto"${!isFixed && slId ? " selected":""}>automatisch</option>
+        <option value="__none"${!slId ? " selected":""}>— kein Termin —</option>
+        ${slotOptions(st)}
+      </select>${termin}</td>
+      <td>${status}</td>
+      <td class="staffs">${esc(staffNames.join(", ")) || "<em>keine zugeordnet</em>"}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  tableBox.innerHTML = h;
+
+  cardsBox.innerHTML = S.slots.map(sl => {
+    const convs = S.students.filter(st => A[st.id] === sl.id).sort(byName);
+    const items = convs.map(st => {
+      const names = reqStaffIds(st.id).map(mid => S.staff.find(m => m.id===mid)?.name).filter(Boolean);
+      return `<li><div class="who">${esc(st.name)}${S.fixed[st.id] ? " 📌" : ""}</div>
+        <div class="with">${esc(names.join(", ")) || "ohne Mitarbeiter*innen"}</div></li>`;
+    }).join("");
+    return `<div class="slotcard"><header><span class="when mono">${esc(slotLabel(sl))}</span>
+      <span class="cnt">${convs.length} Gespräch${convs.length===1?"":"e"}</span></header>
+      <ul>${items || `<li class="empty">Keine Gespräche in diesem Fenster.</li>`}</ul></div>`;
+  }).join("");
+}
+
+const TABS = ["daten","matrix","verfueg","plan"];
+let activeTab = "daten";
+function renderAll(){
+  renderLists(); renderReqMatrix(); renderAvailMatrix(); renderPlan();
+}
+function showTab(name){
+  activeTab = name;
+  for(const t of TABS){
+    $("#pane-" + t).hidden = t !== name;
+  }
+  document.querySelectorAll("nav.tabs button").forEach(b =>
+    b.classList.toggle("active", b.dataset.tab === name));
+}
+
+/* ---------- Aktionen ---------- */
+function touchPlan(){ if(S.plan) solvePlan(); }
+
+function addPerson(kind){
+  const inp = $(kind === "student" ? "#inp-student" : "#inp-staff");
+  const name = inp.value.trim();
+  if(!name){ inp.focus(); return; }
+  const list = kind === "student" ? S.students : S.staff;
+  if(list.some(p => p.name.toLowerCase() === name.toLowerCase())){ toast("«" + name + "» ist bereits erfasst."); return; }
+  list.push({id:newId(kind === "student" ? "sc" : "ma"), name});
+  inp.value = ""; inp.focus();
+  S.sample = false; touchPlan(); save(); renderAll();
+}
+
+function addSlot(date, start, end){
+  if(!date || !start || !end){ toast("Bitte Datum, Start- und Endzeit angeben."); return false; }
+  if(end <= start){ toast("Die Endzeit muss nach der Startzeit liegen."); return false; }
+  if(S.slots.some(sl => sl.date === date && sl.start === start)){ toast("Dieses Zeitfenster existiert bereits."); return false; }
+  S.slots.push({id:newId("sl"), date, start, end});
+  S.slots.sort(slotSort);
+  return true;
+}
+
+function removeEntity(kind, id){
+  if(kind === "student"){
+    const st = S.students.find(x => x.id === id); if(!st) return;
+    if(!confirm(`«${st.name}» samt Zuordnungen entfernen?`)) return;
+    S.students = S.students.filter(x => x.id !== id);
+    delete S.req[id]; delete S.fixed[id];
+    if(S.plan) delete S.plan.assignments[id];
+  }else if(kind === "staff"){
+    const m = S.staff.find(x => x.id === id); if(!m) return;
+    if(!confirm(`«${m.name}» samt Zuordnungen und Verfügbarkeiten entfernen?`)) return;
+    S.staff = S.staff.filter(x => x.id !== id);
+    delete S.unavail[id];
+    for(const sid of Object.keys(S.req)) delete S.req[sid][id];
+  }else if(kind === "slot"){
+    const sl = S.slots.find(x => x.id === id); if(!sl) return;
+    if(!confirm(`Zeitfenster ${slotLabel(sl)} entfernen?`)) return;
+    S.slots = S.slots.filter(x => x.id !== id);
+    for(const mid of Object.keys(S.unavail)) delete S.unavail[mid][id];
+    for(const sid of Object.keys(S.fixed)) if(S.fixed[sid] === id) delete S.fixed[sid];
+  }
+  S.sample = false; touchPlan(); save(); renderAll();
+}
+
+function renameEntity(kind, id){
+  const list = kind === "student" ? S.students : S.staff;
+  const p = list.find(x => x.id === id); if(!p) return;
+  const name = prompt("Neuer Name:", p.name);
+  if(!name || !name.trim()) return;
+  p.name = name.trim();
+  save(); renderAll();
+}
+
+document.addEventListener("click", ev => {
+  const btn = ev.target.closest("[data-act]");
+  if(!btn) return;
+  const act = btn.dataset.act;
+  if(act === "toggle-req"){
+    const {st, ma} = btn.dataset;
+    const row = S.req[st] = S.req[st] || {};
+    if(row[ma]) delete row[ma]; else row[ma] = 1;
+    touchPlan(); save(); renderAll();
+  }else if(act === "toggle-avail"){
+    const {ma, sl} = btn.dataset;
+    const row = S.unavail[ma] = S.unavail[ma] || {};
+    if(row[sl]) delete row[sl]; else row[sl] = 1;
+    touchPlan(); save(); renderAll();
+  }else if(act === "del-student"){ removeEntity("student", btn.dataset.id); }
+  else if(act === "del-staff"){ removeEntity("staff", btn.dataset.id); }
+  else if(act === "del-slot"){ removeEntity("slot", btn.dataset.id); }
+  else if(act === "rename-student"){ renameEntity("student", btn.dataset.id); }
+  else if(act === "rename-staff"){ renameEntity("staff", btn.dataset.id); }
+});
+
+document.addEventListener("change", ev => {
+  const sel = ev.target.closest("select[data-act='fix']");
+  if(!sel) return;
+  const sid = sel.dataset.st;
+  if(sel.value === "__auto"){ delete S.fixed[sid]; }
+  else if(sel.value === "__none"){
+    delete S.fixed[sid];
+    if(S.plan) S.plan.assignments[sid] = null;
+  }
+  else { S.fixed[sid] = sel.value; }
+  if(sel.value !== "__none") solvePlan(); else save();
+  renderPlan(); save();
+  toast(sel.value === "__auto" ? "Termin wird wieder automatisch geplant." :
+        sel.value === "__none" ? "Termin entfernt." : "Termin fixiert – übrige Termine neu berechnet.");
+});
+
+document.querySelectorAll("nav.tabs button").forEach(b =>
+  b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+$("#btn-add-student").addEventListener("click", () => addPerson("student"));
+$("#inp-student").addEventListener("keydown", e => { if(e.key === "Enter") addPerson("student"); });
+$("#btn-add-staff").addEventListener("click", () => addPerson("staff"));
+$("#inp-staff").addEventListener("keydown", e => { if(e.key === "Enter") addPerson("staff"); });
+
+$("#btn-add-slot").addEventListener("click", () => {
+  if(addSlot($("#inp-slot-date").value, $("#inp-slot-start").value, $("#inp-slot-end").value)){
+    S.sample = false; touchPlan(); save(); renderAll();
+  }
+});
+$("#btn-series").addEventListener("click", () => {
+  const date = $("#ser-date").value, start = $("#ser-start").value;
+  const dur = +$("#ser-dur").value, gap = +$("#ser-gap").value, count = +$("#ser-count").value;
+  if(!date || !start || !dur || !count){ toast("Bitte Datum, Startzeit, Dauer und Anzahl angeben."); return; }
+  let [h, m] = start.split(":").map(Number);
+  let added = 0;
+  const two = n => String(n).padStart(2, "0");
+  for(let i = 0; i < count; i++){
+    const sMin = h*60 + m + i*(dur + gap);
+    const eMin = sMin + dur;
+    if(eMin >= 24*60) break;
+    if(addSlot(date, two(Math.floor(sMin/60)) + ":" + two(sMin%60), two(Math.floor(eMin/60)) + ":" + two(eMin%60))) added++;
+  }
+  if(added){ S.sample = false; touchPlan(); save(); renderAll(); toast(added + " Zeitfenster hinzugefügt."); }
+});
+
+$("#btn-solve").addEventListener("click", () => {
+  solvePlan(); renderPlan();
+  const placed = S.students.filter(st => S.plan.assignments[st.id]).length;
+  toast(placed === S.students.length
+    ? "Alle " + placed + " Gespräche konnten geplant werden."
+    : placed + " von " + S.students.length + " Gesprächen geplant – Details siehe Hinweise.");
+});
+
+$("#btn-clear-all").addEventListener("click", () => {
+  if(!confirm("Alle Beispieldaten löschen und leer starten?")) return;
+  S = {students:[], staff:[], slots:[], req:{}, unavail:{}, fixed:{}, plan:null, sample:false};
+  save(); renderAll(); showTab("daten");
+});
+
+/* ---------- Export / Import ---------- */
+function download(filename, text, mime){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], {type:mime}));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+$("#btn-export-json").addEventListener("click", () => {
+  download("gespraechsplaner-ifg.json", JSON.stringify(S, null, 2), "application/json");
+  toast("Daten als JSON-Datei gesichert.");
+});
+$("#btn-import-json").addEventListener("click", () => $("#file-import").click());
+$("#file-import").addEventListener("change", ev => {
+  const f = ev.target.files[0]; if(!f) return;
+  f.text().then(txt => {
+    const d = JSON.parse(txt);
+    if(!d || !Array.isArray(d.students) || !Array.isArray(d.staff)) throw new Error("bad");
+    S = {students:[], staff:[], slots:[], req:{}, unavail:{}, fixed:{}, plan:null, sample:false, ...d};
+    save(); renderAll();
+    toast("Daten geladen.");
+  }).catch(() => toast("Die Datei konnte nicht gelesen werden – ist es eine Sicherung dieses Tools?"));
+  ev.target.value = "";
+});
+$("#btn-export-csv").addEventListener("click", () => {
+  if(!S.plan){ toast("Bitte zuerst «Termine planen» ausführen."); return; }
+  const rows = [["Schüler*in","Datum","Start","Ende","Mitarbeiter*innen","Status"]];
+  for(const st of [...S.students].sort(byName)){
+    const slId = S.plan.assignments[st.id];
+    const sl = S.slots.find(x => x.id === slId);
+    const names = reqStaffIds(st.id).map(mid => S.staff.find(m => m.id===mid)?.name).filter(Boolean).join(", ");
+    rows.push(sl
+      ? [st.name, fmtDate(sl.date), sl.start, sl.end, names, S.fixed[st.id] ? "fixiert" : "geplant"]
+      : [st.name, "", "", "", names, "kein Termin gefunden"]);
+  }
+  const csv = "\uFEFF" + rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(";")).join("\r\n");
+  download("gespraechsplan-ifg.csv", csv, "text/csv;charset=utf-8");
+  toast("Plan als CSV exportiert – lässt sich direkt in Excel öffnen.");
+});
+$("#btn-print").addEventListener("click", () => { showTab("plan"); renderPlan(); window.print(); });
+
+renderAll();
+showTab("daten");
+</script>
+
+
+</body>
+</html>
