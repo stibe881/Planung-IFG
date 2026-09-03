@@ -113,7 +113,13 @@ input[type=text],input[type=date],input[type=time],input[type=number],select{
   font:inherit; color:var(--ink); background:var(--surface);
   border:1px solid var(--line-strong); border-radius:8px; padding:6px 10px;
 }
-input[type=time],input[type=date],input[type=number]{font-family:"Spline Sans Mono",monospace; font-size:.9rem}
+input[type=time],input[type=date],input[type=number]{
+  font-family:"Spline Sans Mono",monospace; font-size:.9rem;
+  /* iOS-WebKit: native Datums-/Zeitfelder unterschreiten ihre intrinsische
+     Breite nicht – appearance:none zwingt sie, die CSS-Breite zu respektieren */
+  -webkit-appearance:none; appearance:none;
+  min-width:0; max-width:100%;
+}
 
 .banner{
   display:flex; gap:12px; align-items:flex-start; margin:0 0 20px;
@@ -302,8 +308,8 @@ table.result .staffs{color:var(--muted); font-size:.84rem}
   nav.tabs button .step{width:17px; height:17px; margin-right:5px; font-size:.7rem}
   main{padding:14px 12px 60px}
   .card{padding:12px 14px}
-  .addrow.slots{grid-template-columns:1fr 1fr}
-  fieldset.series .grid{grid-template-columns:1fr 1fr}
+  .addrow.slots{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  fieldset.series .grid{grid-template-columns:minmax(0,1fr)}
   table.matrix td button.cell{min-width:30px; height:34px}
   table.matrix thead th .vert{max-height:120px; min-height:70px; font-size:.78rem}
   table.matrix tbody th{padding:6px 8px; max-width:38vw; overflow:hidden; text-overflow:ellipsis}
@@ -429,7 +435,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     <div class="slotgrid" id="slot-cards"></div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner IFG · Version 1.3 vom 03.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner IFG · Version 1.4 vom 03.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
