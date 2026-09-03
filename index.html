@@ -130,8 +130,10 @@ ul.plain li .meta{color:var(--muted); font-size:.8rem}
 .addrow{display:flex; gap:8px; flex-wrap:wrap}
 .addrow input[type=text]{flex:1; min-width:140px}
 .addrow.slots{display:grid; grid-template-columns:1fr 1fr; gap:8px}
-.addrow.slots input[type=date]{grid-column:1 / -1}
 .addrow.slots .btn{grid-column:1 / -1}
+label.fld{font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; gap:3px; min-width:0}
+label.fld.wide{grid-column:1 / -1}
+label.fld input{width:100%; min-height:38px}
 fieldset.series{
   border:1px dashed var(--line-strong); border-radius:10px; margin:14px 0 0; padding:10px 12px 12px;
 }
@@ -205,8 +207,9 @@ table.matrix tfoot th{text-align:left; padding-left:12px; position:sticky; left:
 .pill.bad .dot{background:var(--req)} .pill.bad{color:var(--req-ink); background:var(--req-soft); border-color:var(--req)}
 .pill.fix .dot{background:var(--accent)} .pill.fix{color:var(--accent); background:var(--accent-soft); border-color:var(--accent)}
 
+#result-table{overflow-x:auto}
 table.result{
-  border-collapse:collapse; width:100%; background:var(--surface);
+  border-collapse:collapse; width:100%; min-width:640px; background:var(--surface);
   border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow);
   font-size:.9rem;
 }
@@ -261,6 +264,27 @@ table.result .staffs{color:var(--muted); font-size:.84rem}
   table.result select{border:none; background:none; appearance:none; font:inherit; padding:0}
 }
 .printtitle{display:none}
+
+@media (max-width:680px){
+  body{font-size:14px}
+  header.app{padding:12px 14px 10px; gap:8px}
+  header.app h1{font-size:1.15rem}
+  header.app .sub{display:none}
+  header.app #btn-autoassign{order:5; width:100%; padding:10px 14px}
+  nav.tabs{padding:0 6px}
+  nav.tabs button{padding:10px 8px 8px; font-size:.85rem}
+  nav.tabs button .step{width:17px; height:17px; margin-right:5px; font-size:.7rem}
+  main{padding:14px 12px 60px}
+  .card{padding:12px 14px}
+  .addrow.slots{grid-template-columns:1fr 1fr}
+  fieldset.series .grid{grid-template-columns:1fr 1fr}
+  table.matrix td button.cell{min-width:30px; height:34px}
+  table.matrix thead th .vert{max-height:120px; min-height:70px; font-size:.78rem}
+  table.matrix tbody th{padding:6px 8px; max-width:38vw; overflow:hidden; text-overflow:ellipsis}
+  .planbar .btn{flex:1}
+  .slotgrid{grid-template-columns:1fr}
+}
+input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -271,6 +295,7 @@ table.result .staffs{color:var(--muted); font-size:.84rem}
     <div class="sub">Schüler*innen‑Gespräche planen: Wer muss dabei sein, wer kann wann – und welches Zeitfenster passt?</div>
   </div>
   <div class="spacer"></div>
+  <button class="btn primary" id="btn-autoassign" title="Sucht für alle Schüler*innen automatisch einen passenden Termin">⚡ Automatisch zuordnen</button>
   <button class="btn small" id="btn-export-json" title="Alle Daten als Datei sichern">Daten sichern</button>
   <button class="btn small" id="btn-import-json">Daten laden</button>
   <input type="file" id="file-import" accept="application/json" hidden>
@@ -317,9 +342,9 @@ table.result .staffs{color:var(--muted); font-size:.84rem}
         <p class="cardhint">Mögliche Gesprächstermine. Pro Zeitfenster können mehrere Gespräche parallel stattfinden, solange sich die Mitarbeiter*innen nicht überschneiden.</p>
         <ul class="plain mono" id="list-slots"></ul>
         <div class="addrow slots">
-          <input type="date" id="inp-slot-date" aria-label="Datum">
-          <input type="time" id="inp-slot-start" aria-label="Startzeit">
-          <input type="time" id="inp-slot-end" aria-label="Endzeit">
+          <label class="fld wide">Datum <input type="date" id="inp-slot-date"></label>
+          <label class="fld">Von <input type="time" id="inp-slot-start"></label>
+          <label class="fld">Bis <input type="time" id="inp-slot-end"></label>
           <button class="btn" id="btn-add-slot">Zeitfenster hinzufügen</button>
         </div>
         <fieldset class="series">
@@ -718,8 +743,11 @@ function showTab(name){
   for(const t of TABS){
     $("#pane-" + t).hidden = t !== name;
   }
-  document.querySelectorAll("nav.tabs button").forEach(b =>
-    b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll("nav.tabs button").forEach(b => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle("active", on);
+    if(on && b.scrollIntoView) b.scrollIntoView({block:"nearest", inline:"nearest"});
+  });
 }
 
 /* ---------- Aktionen ---------- */
@@ -843,13 +871,19 @@ $("#btn-series").addEventListener("click", () => {
   if(added){ S.sample = false; touchPlan(); save(); renderAll(); toast(added + " Zeitfenster hinzugefügt."); }
 });
 
-$("#btn-solve").addEventListener("click", () => {
-  solvePlan(); renderPlan();
+function runAutoPlan(){
+  if(!S.students.length){ showTab("daten"); toast("Bitte zuerst Schüler*innen erfassen."); return; }
+  if(!S.slots.length){ showTab("daten"); toast("Bitte zuerst Zeitfenster erfassen."); return; }
+  solvePlan();
+  showTab("plan");
+  renderPlan();
   const placed = S.students.filter(st => S.plan.assignments[st.id]).length;
   toast(placed === S.students.length
     ? "Alle " + placed + " Gespräche konnten geplant werden."
     : placed + " von " + S.students.length + " Gesprächen geplant – Details siehe Hinweise.");
-});
+}
+$("#btn-solve").addEventListener("click", runAutoPlan);
+$("#btn-autoassign").addEventListener("click", runAutoPlan);
 
 $("#btn-clear-all").addEventListener("click", () => {
   if(!confirm("Alle Beispieldaten löschen und leer starten?")) return;
