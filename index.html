@@ -80,6 +80,9 @@ h2{
   font-size:1.15rem; font-weight:700; margin:0 0 4px; letter-spacing:-.01em;
 }
 .hint{color:var(--muted); font-size:.88rem; margin:0 0 16px; max-width:70ch}
+h3.subhead{font-size:.95rem; font-weight:600; margin:22px 0 4px}
+h3.subhead:first-of-type{margin-top:10px}
+.matrixwrap + .legend{margin-top:10px}
 .btn{
   appearance:none; font:inherit; font-weight:600; cursor:pointer;
   border:1px solid var(--line-strong); border-radius:8px; padding:7px 14px;
@@ -376,11 +379,16 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
   </section>
 
   <section class="tabpane" id="pane-verfueg" hidden>
-    <h2>Verfügbarkeit der Mitarbeiter*innen</h2>
-    <p class="hint">Standardmässig sind alle überall verfügbar (<strong>A</strong>). Klicke auf eine Zelle, wenn jemand in einem Zeitfenster <em>nicht</em> kann. Die Zeile rechts zeigt, ob die Verfügbarkeit für die Zahl der zugeordneten Gespräche überhaupt reicht.</p>
+    <h2>Verfügbarkeit</h2>
+    <p class="hint">Standardmässig ist alles überall möglich (<strong>A</strong>). Klicke auf eine Zelle, wenn etwas in einem Zeitfenster <em>nicht</em> geht – der Planer berücksichtigt beides automatisch.</p>
+    <h3 class="subhead">Mitarbeiter*innen</h3>
+    <p class="hint">Wann kann welche Mitarbeiter*in? Die Spalte rechts zeigt, ob die Verfügbarkeit für die Zahl der zugeordneten Gespräche überhaupt reicht.</p>
     <div class="matrixwrap" id="matrix-avail"></div>
+    <h3 class="subhead">Gespräche (Schüler*innen / Eltern)</h3>
+    <p class="hint">Wann kann welches Gespräch stattfinden? Trage hier ein, wenn eine Familie bestimmte Zeitfenster nicht wahrnehmen kann.</p>
+    <div class="matrixwrap" id="matrix-avail-stu"></div>
     <div class="legend">
-      <span><span class="sw" style="background:var(--ok)"></span>A = verfügbar</span>
+      <span><span class="sw" style="background:var(--ok)"></span>A = verfügbar / möglich</span>
       <span><span class="sw" style="background:var(--req-soft)"></span>× = nicht verfügbar</span>
     </div>
   </section>
@@ -437,7 +445,7 @@ function sampleData(){
       (req[sid] = req[sid] || {})[staff[mi].id] = 1;
     }
   }
-  return {students, staff, slots, req, unavail:{}, fixed:{}, plan:null, sample:true};
+  return {students, staff, slots, req, unavail:{}, stuUnavail:{}, fixed:{}, plan:null, sample:true};
 }
 
 function load(){
@@ -446,7 +454,7 @@ function load(){
     if(!raw) return null;
     const d = JSON.parse(raw);
     if(!d || !Array.isArray(d.students)) return null;
-    return {students:[], staff:[], slots:[], req:{}, unavail:{}, fixed:{}, plan:null, sample:false, ...d};
+    return {students:[], staff:[], slots:[], req:{}, unavail:{}, stuUnavail:{}, fixed:{}, plan:null, sample:false, ...d};
   }catch(e){ return null; }
 }
 function save(){
@@ -463,6 +471,7 @@ function fmtDate(iso){
   return wd + " " + String(d).padStart(2,"0") + "." + String(m).padStart(2,"0") + "." + y;
 }
 const slotLabel = sl => fmtDate(sl.date) + " · " + sl.start + "–" + sl.end;
+const slotLabelVert = sl => sl.start + "–" + sl.end + " · " + fmtDate(sl.date);
 const slotShort = sl => fmtDate(sl.date).slice(0,2) + " " + sl.start;
 const byName = (a,b) => a.name.localeCompare(b.name, "de");
 const slotSort = (a,b) => (a.date+a.start).localeCompare(b.date+b.start);
@@ -470,9 +479,12 @@ const slotSort = (a,b) => (a.date+a.start).localeCompare(b.date+b.start);
 const reqStaffIds = studentId =>
   S.staff.filter(m => (S.req[studentId]||{})[m.id]).map(m => m.id);
 const isAvail = (staffId, slotId) => !((S.unavail[staffId]||{})[slotId]);
+const isStuAvail = (studentId, slotId) => !((S.stuUnavail[studentId]||{})[slotId]);
 function candidateSlots(studentId){
   const need = reqStaffIds(studentId);
-  return S.slots.filter(sl => need.every(mid => isAvail(mid, sl.id))).map(sl => sl.id);
+  return S.slots
+    .filter(sl => isStuAvail(studentId, sl.id) && need.every(mid => isAvail(mid, sl.id)))
+    .map(sl => sl.id);
 }
 
 let toastTimer = null;
@@ -499,6 +511,8 @@ function solvePlan(){
     if(!slotIds.includes(fixedSlot)){ delete S.fixed[st.id]; continue; }
     const need = reqStaffIds(st.id);
     const sl = S.slots.find(x => x.id === fixedSlot);
+    if(!isStuAvail(st.id, fixedSlot))
+      warnings.push(`Fixierter Termin: Das Gespräch ${st.name} ist am ${slotLabel(sl)} als nicht möglich markiert.`);
     for(const mid of need){
       const m = S.staff.find(x => x.id === mid);
       if(!isAvail(mid, fixedSlot))
@@ -556,8 +570,9 @@ function solvePlan(){
   slotIds.forEach(id => countPerSlot[id] = 0);
   for(const sid of Object.keys(assign)) if(assign[sid]) countPerSlot[assign[sid]]++;
   for(const st of noReq){
-    if(!slotIds.length){ assign[st.id] = null; continue; }
-    const target = [...S.slots].sort((a,b) => countPerSlot[a.id]-countPerSlot[b.id] || slotSort(a,b))[0];
+    const possible = S.slots.filter(sl => isStuAvail(st.id, sl.id));
+    if(!possible.length){ assign[st.id] = null; continue; }
+    const target = possible.sort((a,b) => countPerSlot[a.id]-countPerSlot[b.id] || slotSort(a,b))[0];
     assign[st.id] = target.id;
     countPerSlot[target.id]++;
   }
@@ -569,8 +584,10 @@ function solvePlan(){
 
 function unplacedReason(studentId){
   if(!S.slots.length) return "Es sind keine Zeitfenster erfasst.";
+  if(!S.slots.some(sl => isStuAvail(studentId, sl.id)))
+    return "Das Gespräch ist in allen Zeitfenstern als nicht möglich markiert.";
   const cands = candidateSlots(studentId);
-  if(!cands.length) return "Kein Zeitfenster, in dem alle zugeordneten Mitarbeiter*innen verfügbar sind.";
+  if(!cands.length) return "Kein Zeitfenster, in dem das Gespräch möglich ist und alle zugeordneten Mitarbeiter*innen verfügbar sind.";
   return "In allen passenden Zeitfenstern sind Mitarbeiter*innen bereits durch andere Gespräche gebunden.";
 }
 
@@ -632,7 +649,7 @@ function renderAvailMatrix(){
     return;
   }
   let h = `<table class="matrix"><thead><tr><th class="rowhead"></th>`;
-  for(const sl of S.slots) h += `<th scope="col"><span class="vert mono">${esc(slotLabel(sl))}</span></th>`;
+  for(const sl of S.slots) h += `<th scope="col"><span class="vert mono">${esc(slotLabelVert(sl))}</span></th>`;
   h += `<th scope="col"><span class="vert">Gespräche / verfügbar</span></th></tr></thead><tbody>`;
   for(const m of S.staff){
     const needCount = S.students.filter(st => (S.req[st.id]||{})[m.id]).length;
@@ -649,6 +666,32 @@ function renderAvailMatrix(){
   }
   h += `</tbody></table>`;
   wrap.innerHTML = h;
+  renderStuAvailMatrix();
+}
+
+function renderStuAvailMatrix(){
+  const wrap = $("#matrix-avail-stu");
+  if(!S.students.length || !S.slots.length){
+    wrap.innerHTML = `<p style="padding:16px;color:var(--muted)">Bitte zuerst Schüler*innen und Zeitfenster unter «Stammdaten» erfassen.</p>`;
+    return;
+  }
+  let h = `<table class="matrix"><thead><tr><th class="rowhead"></th>`;
+  for(const sl of S.slots) h += `<th scope="col"><span class="vert mono">${esc(slotLabelVert(sl))}</span></th>`;
+  h += `<th scope="col"><span class="vert">möglich in</span></th></tr></thead><tbody>`;
+  for(const st of S.students){
+    let cnt = 0;
+    h += `<tr><th scope="row">${esc(st.name)}</th>`;
+    for(const sl of S.slots){
+      const av = isStuAvail(st.id, sl.id);
+      if(av) cnt++;
+      h += `<td><button class="cell${av?" avail":" blocked"}" data-act="toggle-stuavail" data-st="${st.id}" data-sl="${sl.id}"
+        aria-pressed="${av}" aria-label="Gespräch ${esc(st.name)} am ${esc(slotLabel(sl))}">${av?"A":"×"}</button></td>`;
+    }
+    const none = cnt === 0;
+    h += `<td class="mono" style="padding:0 10px;${none?"color:var(--req);font-weight:600":"color:var(--muted)"}">${cnt} / ${S.slots.length}${none?" ⚠":""}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  wrap.innerHTML = h;
 }
 
 function renderDiagnostics(){
@@ -662,8 +705,11 @@ function renderDiagnostics(){
       items.push({cls:"err", txt:`${m.name} ist ${needCount} Gesprächen zugeordnet, aber nur in ${availCount} Zeitfenstern verfügbar – es braucht mehr Zeitfenster oder weniger Zuordnungen.`});
   }
   for(const st of S.students){
-    if(reqStaffIds(st.id).length && S.slots.length && !candidateSlots(st.id).length)
-      items.push({cls:"warn", txt:`Für ${st.name} gibt es kein Zeitfenster, in dem alle zugeordneten Mitarbeiter*innen verfügbar sind.`});
+    if(!S.slots.length) break;
+    if(!S.slots.some(sl => isStuAvail(st.id, sl.id)))
+      items.push({cls:"err", txt:`Das Gespräch ${st.name} ist in allen Zeitfenstern als nicht möglich markiert.`});
+    else if(reqStaffIds(st.id).length && !candidateSlots(st.id).length)
+      items.push({cls:"warn", txt:`Für ${st.name} gibt es kein Zeitfenster, in dem das Gespräch möglich ist und alle zugeordneten Mitarbeiter*innen verfügbar sind.`});
   }
   for(const w of (S.plan?.warnings || [])) items.push({cls:"warn", txt:w});
   box.innerHTML = items.map(i => `<div class="item ${i.cls==="err"?"err":""}">${esc(i.txt)}</div>`).join("");
@@ -782,7 +828,7 @@ function removeEntity(kind, id){
     const st = S.students.find(x => x.id === id); if(!st) return;
     if(!confirm(`«${st.name}» samt Zuordnungen entfernen?`)) return;
     S.students = S.students.filter(x => x.id !== id);
-    delete S.req[id]; delete S.fixed[id];
+    delete S.req[id]; delete S.fixed[id]; delete S.stuUnavail[id];
     if(S.plan) delete S.plan.assignments[id];
   }else if(kind === "staff"){
     const m = S.staff.find(x => x.id === id); if(!m) return;
@@ -795,6 +841,7 @@ function removeEntity(kind, id){
     if(!confirm(`Zeitfenster ${slotLabel(sl)} entfernen?`)) return;
     S.slots = S.slots.filter(x => x.id !== id);
     for(const mid of Object.keys(S.unavail)) delete S.unavail[mid][id];
+    for(const sid of Object.keys(S.stuUnavail)) delete S.stuUnavail[sid][id];
     for(const sid of Object.keys(S.fixed)) if(S.fixed[sid] === id) delete S.fixed[sid];
   }
   S.sample = false; touchPlan(); save(); renderAll();
@@ -821,6 +868,11 @@ document.addEventListener("click", ev => {
   }else if(act === "toggle-avail"){
     const {ma, sl} = btn.dataset;
     const row = S.unavail[ma] = S.unavail[ma] || {};
+    if(row[sl]) delete row[sl]; else row[sl] = 1;
+    touchPlan(); save(); renderAll();
+  }else if(act === "toggle-stuavail"){
+    const {st, sl} = btn.dataset;
+    const row = S.stuUnavail[st] = S.stuUnavail[st] || {};
     if(row[sl]) delete row[sl]; else row[sl] = 1;
     touchPlan(); save(); renderAll();
   }else if(act === "del-student"){ removeEntity("student", btn.dataset.id); }
@@ -891,7 +943,7 @@ $("#btn-autoassign").addEventListener("click", runAutoPlan);
 
 $("#btn-clear-all").addEventListener("click", () => {
   if(!confirm("Alle Beispieldaten löschen und leer starten?")) return;
-  S = {students:[], staff:[], slots:[], req:{}, unavail:{}, fixed:{}, plan:null, sample:false};
+  S = {students:[], staff:[], slots:[], req:{}, unavail:{}, stuUnavail:{}, fixed:{}, plan:null, sample:false};
   save(); renderAll(); showTab("daten");
 });
 
@@ -925,7 +977,7 @@ $("#file-import").addEventListener("change", ev => {
   f.text().then(txt => {
     const d = JSON.parse(txt);
     if(!d || !Array.isArray(d.students) || !Array.isArray(d.staff)) throw new Error("bad");
-    S = {students:[], staff:[], slots:[], req:{}, unavail:{}, fixed:{}, plan:null, sample:false, ...d};
+    S = {students:[], staff:[], slots:[], req:{}, unavail:{}, stuUnavail:{}, fixed:{}, plan:null, sample:false, ...d};
     save(); renderAll();
     toast("Daten geladen.");
   }).catch(() => toast("Die Datei konnte nicht gelesen werden – ist es eine Sicherung dieses Tools?"));

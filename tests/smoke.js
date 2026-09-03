@@ -46,7 +46,16 @@ if (un) {
   solvePlan();
   if (S.plan.assignments[un.id] !== S.slots[0].id) throw new Error("Fixierter Termin wurde nicht übernommen");
   console.log("OK: fixierte Termine bleiben bei Neuberechnung bestehen");
+  delete S.fixed[un.id];
 }
+// Gesprächs-Verfügbarkeit: ein Gespräch in allen Fenstern sperren -> darf nicht geplant werden
+const blocked = S.students[0];
+S.stuUnavail[blocked.id] = {};
+for (const sl of S.slots) S.stuUnavail[blocked.id][sl.id] = 1;
+solvePlan();
+if (S.plan.assignments[blocked.id]) throw new Error("Gesperrtes Gespräch wurde trotzdem geplant");
+console.log("OK: Gesprächs-Verfügbarkeit wird berücksichtigt");
+delete S.stuUnavail[blocked.id];
 `;
 eval(src.slice(0, cut) + test);
 console.log("Alle Prüfungen bestanden.");
