@@ -336,6 +336,19 @@ table.result .staffs{color:var(--muted); font-size:.84rem}
 .modal-box input{width:100%; margin:0 0 14px}
 .modal-actions{display:flex; gap:10px; justify-content:flex-end}
 
+.gate{
+  position:fixed; inset:0; z-index:80; display:grid; place-items:center;
+  background:var(--bg); padding:24px;
+}
+.gate[hidden]{display:none}
+.gate-box{
+  background:var(--surface); border:1px solid var(--line); border-radius:16px;
+  box-shadow:var(--shadow); padding:36px 40px; max-width:420px; width:100%;
+  text-align:center; display:flex; flex-direction:column; gap:10px; align-items:center;
+}
+.gate-box h2{font-family:"Poppins","Instrument Sans",sans-serif; color:var(--accent)}
+.gate-box p{color:var(--muted); margin:0 0 10px}
+.gate-logo{max-height:60px; width:auto; background:var(--logo-bg); padding:var(--logo-pad); border-radius:10px}
 .skiplink{
   position:absolute; left:-9999px; top:0; z-index:100;
   background:var(--accent); color:var(--accent-ink); padding:8px 16px; border-radius:0 0 8px 0;
@@ -593,7 +606,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     </div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner · Version 2.3 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner · Version 2.4 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -614,6 +627,16 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     <h3 id="log-title" style="margin:0 0 10px">Änderungsprotokoll · <span id="log-project"></span></h3>
     <div id="log-list" style="max-height:55vh; overflow:auto"></div>
     <div class="modal-actions"><button class="btn" id="log-close">Schliessen</button></div>
+  </div>
+</div>
+
+<div class="gate" id="login-gate" hidden>
+  <div class="gate-box">
+    <img class="gate-logo" alt="Sonnenberg" id="gate-logo">
+    <h2 style="margin:14px 0 6px">Gesprächsplaner</h2>
+    <p id="gate-text">Bitte melde dich mit deinem Microsoft-Konto an, um den Gesprächsplaner zu nutzen.</p>
+    <button class="btn primary" id="gate-login">Mit Microsoft anmelden</button>
+    <button class="btn" id="gate-logout" hidden>Abmelden</button>
   </div>
 </div>
 
@@ -727,13 +750,35 @@ function logAction(txt){
   S.log.unshift({ts:Date.now(), user: msalAccount ? (msalAccount.name || msalAccount.username) : "lokal", txt});
   if(S.log.length > 200) S.log.length = 200;
 }
+// Azure-Gruppen aus dem ID-Token (App-Registrierung -> Token configuration -> groups claim)
+function userGroups(){
+  const g = msalAccount && msalAccount.idTokenClaims && msalAccount.idTokenClaims.groups;
+  return Array.isArray(g) ? g : [];
+}
+const isPlannerOf = p => {
+  const pe = ((p.planner || {}).email || "").trim().toLowerCase();
+  return !!msalAccount && !!pe && (msalAccount.username || "").toLowerCase() === pe;
+};
+// Sichtbarkeit eines Angebots: ohne SSO alles; mit SSO nur angemeldet, und bei
+// hinterlegter Azure-Gruppe nur für deren Mitglieder (Planer*in immer).
+function projectVisible(p){
+  if(!ssoConfigured()) return true;
+  if(!msalAccount) return false;
+  if(isPlannerOf(p)) return true;
+  if(p.groupId) return userGroups().includes(p.groupId);
+  return true;
+}
+const visibleProjects = () => ROOT.projects.filter(projectVisible);
 function canEdit(){
-  if(activeProject().archived) return false; // Archiv ist immer nur Ansicht
+  const p = activeProject();
+  if(p.archived) return false;               // Archiv ist immer nur Ansicht
   if(!ssoConfigured()) return true;          // offener Modus ohne SSO-Konfiguration
   if(!msalAccount) return false;             // ohne Anmeldung nur Ansicht
-  const pe = ((activeProject().planner || {}).email || "").trim().toLowerCase();
-  if(!pe) return true;                       // kein*e Verantwortliche*r hinterlegt
-  return (msalAccount.username || "").toLowerCase() === pe;
+  if(!projectVisible(p)) return false;
+  if(isPlannerOf(p)) return true;
+  if(p.groupId) return true;                 // sichtbar = Gruppenmitglied -> darf bearbeiten
+  const pe = ((p.planner || {}).email || "").trim().toLowerCase();
+  return !pe;                                // ohne Gruppe & ohne Planer*in: alle Angemeldeten
 }
 function guardEdit(){
   if(canEdit()) return true;
@@ -758,6 +803,7 @@ function initMsal(){
       if(res && res.account) msalApp.setActiveAccount(res.account);
       msalAccount = msalApp.getActiveAccount() || msalApp.getAllAccounts()[0] || null;
       updateAuthUi(); renderAll();
+      if(msalAccount && syncConfigured()) syncNow(true);
     }).catch(() => updateAuthUi());
   }catch(e){ updateAuthUi(); }
 }
@@ -771,6 +817,21 @@ function updateAuthUi(){
   document.body.classList.toggle("readonly", !canEdit());
   const lock = $("#pb-lock");
   if(lock) lock.hidden = canEdit();
+  updateGate();
+}
+// Vor der Anmeldung (bei aktivem SSO) ist die ganze App verdeckt.
+function updateGate(){
+  const gate = $("#login-gate");
+  if(!gate) return;
+  const needLogin = ssoConfigured() && !msalAccount;
+  const noAccess = ssoConfigured() && !!msalAccount && visibleProjects().length === 0;
+  gate.hidden = !(needLogin || noAccess);
+  if(gate.hidden) return;
+  $("#gate-login").hidden = !needLogin;
+  $("#gate-logout").hidden = !noAccess;
+  $("#gate-text").textContent = needLogin
+    ? "Bitte melde dich mit deinem Microsoft-Konto an, um den Gesprächsplaner zu nutzen."
+    : "Dein Konto (" + (msalAccount.username || "") + ") ist keinem Angebot zugeteilt. Bitte wende dich an die verantwortliche Planung, damit du der passenden Azure-Gruppe hinzugefügt wirst.";
 }
 
 const $ = sel => document.querySelector(sel);
@@ -1301,7 +1362,12 @@ const TABS = ["daten","matrix","verfueg","plan"];
 let activeTab = "daten";
 function renderProjectBar(){
   const sel = $("#project-select");
-  sel.innerHTML = ROOT.projects.map(p =>
+  const vis = visibleProjects();
+  if(vis.length && !vis.some(p => p.id === ROOT.active)){
+    ROOT.active = vis[0].id;
+    S = activeProject().data;
+  }
+  sel.innerHTML = vis.map(p =>
     `<option value="${p.id}" ${p.id === ROOT.active ? "selected" : ""}>${esc(p.name)}${p.archived ? " (Archiv)" : ""}</option>`).join("");
   const p = activeProject();
   const pl = p.planner || {};
@@ -1819,9 +1885,12 @@ $("#btn-project-settings").addEventListener("click", async () => {
   if(plName === null) return;
   const plMail = await askText("Microsoft-E-Mail der Planer*in (für die Bearbeitungsrechte bei aktivem SSO):", p.planner.email || "");
   if(plMail === null) return;
+  const grp = await askText("Azure-Gruppen-ID (Objekt-ID der Entra-ID-Gruppe; nur Mitglieder sehen und bearbeiten dieses Angebot – leer = keine Gruppenbeschränkung):", p.groupId || "");
+  if(grp === null) return;
   pushUndo();
   if(name.trim()) p.name = name.trim();
   p.planner = {name: plName.trim(), email: plMail.trim()};
+  p.groupId = grp.trim();
   save(); renderAll();
   toast("Einstellungen gespeichert.");
 });
@@ -1996,6 +2065,7 @@ function scheduleSync(){
 }
 async function syncNow(silent){
   if(!syncConfigured() || syncState.busy) return;
+  if(ssoConfigured() && !msalAccount) return; // vor der Anmeldung keine Daten laden
   syncState = {msg:"synchronisiere…", cls:"", busy:true}; renderSyncStatus();
   try{
     const remote = await apiCall("pull");
@@ -2088,6 +2158,14 @@ async function loadRemoteConfig(){
     if(!syncConfigured()) detectedApiUrl = base;  // Vorschlag für den Sync-Dialog
   }catch(e){ /* API nicht erreichbar -> lokale Werte gelten */ }
 }
+
+$("#gate-login").addEventListener("click", () => {
+  if(msalApp) msalApp.loginRedirect({scopes:["openid","profile","email"]});
+  else toast("Anmeldedienst noch nicht geladen – bitte Seite neu laden.");
+});
+$("#gate-logout").addEventListener("click", () => { if(msalApp) msalApp.logoutRedirect(); });
+const headerLogo = document.querySelector("header.app .logo");
+if(headerLogo) $("#gate-logo").src = headerLogo.src;
 
 renderAll();
 renderAbsWho();

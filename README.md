@@ -127,6 +127,27 @@ das Tool wie bisher rein lokal.
 beim Hoster neu setzen. Der `SYNC_KEY` schützt die API vor Fremdzugriff;
 alle Personen mit Schlüssel können lesen und schreiben.
 
+## Version 2.4: Login-Pflicht und Azure-Gruppen
+
+Bei aktivem SSO zeigt die App vor der Microsoft-Anmeldung nichts mehr an
+(Anmelde-Bildschirm); auch die Daten-Synchronisation startet erst nach dem
+Login. Zusätzlich steuern Entra-ID-Gruppen den Zugriff pro Angebot:
+
+- **Einrichtung durch die IT (einmalig)**: In der App-Registrierung unter
+  **Token configuration → «Add groups claim» → Security groups** aktivieren.
+  Dadurch stehen die Gruppenzugehörigkeiten im Anmelde-Token.
+- **Pro Angebot**: Unter «Einstellungen» die **Objekt-ID** der zuständigen
+  Entra-ID-Gruppe hinterlegen (zu finden im Entra-Portal unter Gruppen →
+  Übersicht). Dann gilt: Nur Gruppenmitglieder sehen und bearbeiten das
+  Angebot; die hinterlegte verantwortliche Planer*in hat immer Zugriff.
+  Ohne Gruppen-ID ist das Angebot für alle Angemeldeten sichtbar.
+- Wer angemeldet ist, aber keinem sichtbaren Angebot angehört, sieht einen
+  Hinweis-Bildschirm («keinem Angebot zugeteilt»).
+
+Hinweis: Bei sehr vielen Gruppenmitgliedschaften (>200) liefert Microsoft
+die Gruppen nicht mehr im Token («groups overage») – dann für die App-Rolle
+eine dedizierte kleine Gruppe verwenden.
+
 ## CI/CD
 
 Bei jedem Push läuft die GitHub-Actions-Pipeline (`.github/workflows/ci-cd.yml`):
