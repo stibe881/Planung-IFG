@@ -56,6 +56,18 @@ solvePlan();
 if (S.plan.assignments[blocked.id]) throw new Error("Gesperrtes Gespräch wurde trotzdem geplant");
 console.log("OK: Gesprächs-Verfügbarkeit wird berücksichtigt");
 delete S.stuUnavail[blocked.id];
+// Doppel-Fenster: Gespräch über 2 aufeinanderfolgende Zeitfenster am selben Tag
+const dbl = S.students.find(st => st.name === "Imhof Kim");
+S.lens[dbl.id] = 2;
+solvePlan();
+const dblStart = S.plan.assignments[dbl.id];
+if (!dblStart) throw new Error("Doppel-Fenster-Gespräch wurde nicht geplant");
+const dblSeq = assignedSeq(dbl.id, dblStart);
+if (!dblSeq || dblSeq.length !== 2) throw new Error("Sequenz hat nicht 2 Fenster");
+const d0 = slotById(dblSeq[0]), d1 = slotById(dblSeq[1]);
+if (d0.date !== d1.date) throw new Error("Doppel-Fenster liegt nicht am selben Tag");
+console.log("OK: Doppel-Fenster-Gespräche werden am Stück geplant");
+delete S.lens[dbl.id];
 `;
 eval(src.slice(0, cut) + test);
 console.log("Alle Prüfungen bestanden.");

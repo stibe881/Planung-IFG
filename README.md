@@ -1,4 +1,4 @@
-# Gesprächsplaner IFG
+# Gesprächsplaner
 
 Ein Planungswerkzeug für die Schüler\*innen-Gespräche: Es koordiniert die drei Grössen
 **Schüler\*innen – Mitarbeiter\*innen – Zeitfenster**, so dass am Schluss jede\*r
@@ -41,6 +41,46 @@ Beim ersten Start ist das Tool mit Beispieldaten vorausgefüllt (frei erfundene
 Namen; Zeitfenster und Zuordnungsstruktur wie im bisherigen Excel). Echte Namen
 werden lokal im Browser erfasst und nie übertragen. Mit «Leer starten» beginnt
 man mit einer leeren Planung.
+
+## Version 2.0: Mehrere Angebote, Rollen und Microsoft-SSO
+
+- **Mehrere Angebote/Abteilungen**: Über die Leiste unter dem Kopfbereich lassen
+  sich beliebig viele getrennte Planungen führen (z. B. «IFG Sehen»,
+  «Logopädie»). Bestehende Daten werden automatisch als Angebot «IFG Sehen»
+  übernommen. «Daten sichern/laden» sichert immer alle Angebote zusammen.
+- **Verantwortliche Planer*in**: Pro Angebot werden unter «Einstellungen» Name
+  und Microsoft-E-Mail der verantwortlichen Person hinterlegt.
+- **Microsoft-SSO (Entra ID)**: In `index.html` ganz oben im Skript stehen
+  `MSAL_CONFIG.clientId` und `MSAL_CONFIG.tenantId`. Trägt die IT dort die
+  Werte einer App-Registrierung ein (Azure-Portal → App-Registrierungen →
+  Neue Registrierung → Typ «Single-Page-Anwendung (SPA)», Redirect-URI =
+  Adresse der veröffentlichten Seite), erscheint «Mit Microsoft anmelden».
+  Dann kann ein Angebot nur noch von der angemeldeten verantwortlichen
+  Planer*in bearbeitet werden; alle anderen sehen es schreibgeschützt.
+  Solange die Felder leer sind, läuft das Tool im offenen Modus.
+  **Hinweis**: Die Daten liegen weiterhin lokal im Browser der jeweiligen
+  Person – der Schreibschutz verhindert versehentliches Bearbeiten, ersetzt
+  aber keine serverseitige Zugriffskontrolle.
+
+## Weitere Funktionen (2.0)
+
+- **Gesprächslängen**: Pro Schüler*in 1–3 aufeinanderfolgende Zeitfenster am
+  selben Tag (Auswahl in den Stammdaten); der Planer bucht sie am Stück.
+- **Status & Notizen**: Pro Gespräch «offen / Eltern informiert / bestätigt /
+  durchgeführt» plus Notiz – auch in CSV-/Excel-Export enthalten.
+- **Lösungsvorschläge**: Für ungeplante Gespräche rechnet das Tool konkrete
+  Auswege aus (fehlende Verfügbarkeit einer einzelnen Person, zusätzliches
+  Zeitfenster an einem bestimmten Tag).
+- **Outlook-Export (.ics)**: Alle Gespräche oder der persönliche Kalender
+  einer Mitarbeiter*in, direkt in Outlook importierbar.
+- **Persönlicher Plan**: Pro Mitarbeiter*in eine eigene Ansicht mit
+  Druckfunktion.
+- **Excel**: Export als Arbeitsmappe (Plan, R-Matrix, Verfügbarkeiten) und
+  Import einer Zuordnungsmatrix (erste Spalte Mitarbeiter*innen, erste Zeile
+  Schüler*innen, «R» in den Zellen) – auch aus dem alten Excel.
+- **Rückgängig**: Die letzten 30 Änderungen lassen sich zurücknehmen.
+- **Barrierefreiheit**: Pfeiltasten-Navigation in den Matrizen,
+  Schriftgrössen-Umschalter (A−/A+), Sprunglink, beschriftete Bedienelemente.
 
 ## CI/CD
 
