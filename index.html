@@ -608,7 +608,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     </div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner · Version 2.5 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner · Version 2.6 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -643,7 +643,8 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
       <input type="text" id="set-pl-mail" placeholder="vorname.nachname@…"></label>
     <label class="fld">Azure-Gruppen-ID (Objekt-ID der Entra-ID-Gruppe)
       <input type="text" id="set-group" placeholder="leer = keine Gruppenbeschränkung"></label>
-    <p class="cardhint" style="margin:4px 0 14px">Ist eine Gruppe hinterlegt, sehen und bearbeiten nur deren Mitglieder dieses Angebot – die Planer*in hat immer Zugriff. Die Objekt-ID steht im Entra-Portal unter Gruppen → Übersicht.</p>
+    <p class="cardhint" style="margin:4px 0 4px">Ist eine Gruppe hinterlegt, sehen und bearbeiten nur deren Mitglieder dieses Angebot – die Planer*in hat immer Zugriff. Die Objekt-ID steht im Entra-Portal unter Gruppen → Übersicht.</p>
+    <p class="cardhint" id="set-group-diag" style="margin:0 0 14px; font-weight:600"></p>
     <div class="modal-actions">
       <button class="btn" id="settings-cancel">Abbrechen</button>
       <button class="btn primary" id="settings-save">Speichern</button>
@@ -850,9 +851,16 @@ function updateGate(){
   if(gate.hidden) return;
   $("#gate-login").hidden = !needLogin;
   $("#gate-logout").hidden = !noAccess;
-  $("#gate-text").textContent = needLogin
-    ? "Bitte melde dich mit deinem Microsoft-Konto an, um den Gesprächsplaner zu nutzen."
-    : "Dein Konto (" + (msalAccount.username || "") + ") ist keinem Angebot zugeteilt. Bitte wende dich an die verantwortliche Planung, damit du der passenden Azure-Gruppe hinzugefügt wirst.";
+  if(needLogin){
+    $("#gate-text").textContent = "Bitte melde dich mit deinem Microsoft-Konto an, um den Gesprächsplaner zu nutzen.";
+  }else{
+    const g = userGroups();
+    $("#gate-text").textContent =
+      "Dein Konto (" + (msalAccount.username || "") + ") ist keinem Angebot zugeteilt. " +
+      (g.length === 0
+        ? "Dein Anmelde-Token enthält keine Gruppen – entweder fehlt der «groups claim» in der App-Registrierung (IT) oder du musst dich ab- und neu anmelden, damit ein frisches Token geholt wird."
+        : "Dein Token enthält " + g.length + " Gruppe(n), aber keine passt zu einem Angebot. Bitte wende dich an die verantwortliche Planung.");
+  }
 }
 
 const $ = sel => document.querySelector(sel);
@@ -1904,6 +1912,15 @@ $("#btn-project-settings").addEventListener("click", () => {
   $("#set-pl-name").value = (p.planner || {}).name || "";
   $("#set-pl-mail").value = (p.planner || {}).email || "";
   $("#set-group").value = p.groupId || "";
+  const diag = $("#set-group-diag");
+  if(ssoConfigured() && msalAccount){
+    const g = userGroups();
+    diag.textContent = g.length
+      ? "Dein Anmelde-Token enthält " + g.length + " Gruppe(n)."
+      : "⚠ Dein Anmelde-Token enthält KEINE Gruppen – die IT muss in der App-Registrierung den «groups claim» aktivieren (danach ab- und neu anmelden).";
+  }else{
+    diag.textContent = "";
+  }
   $("#settings-modal").hidden = false;
   $("#set-name").focus();
 });
@@ -1915,11 +1932,24 @@ document.addEventListener("keydown", ev => {
 $("#settings-save").addEventListener("click", () => {
   if(!guardEdit()) return;
   const p = activeProject();
+  const newGroup = $("#set-group").value.trim();
+  const newMail = $("#set-pl-mail").value.trim().toLowerCase();
+  // Schutz vor Selbstaussperrung: Wer eine Gruppe setzt, muss laut eigenem
+  // Token Mitglied sein oder sich selbst als Planer*in eintragen.
+  if(ssoConfigured() && msalAccount && newGroup
+     && !userGroups().includes(newGroup)
+     && newMail !== (msalAccount.username || "").toLowerCase()){
+    const n = userGroups().length;
+    toast(n === 0
+      ? "Nicht gespeichert: Dein Anmelde-Token enthält keine Gruppen – vermutlich fehlt der «groups claim» in der App-Registrierung (IT), oder du musst dich ab- und neu anmelden. Sonst würdest du dich selbst aussperren."
+      : "Nicht gespeichert: Du bist laut Token nicht Mitglied dieser Gruppe (" + n + " Gruppen im Token) – das würde dich selbst aussperren. Objekt-ID prüfen oder dich als Planer*in eintragen.");
+    return;
+  }
   pushUndo();
   const name = $("#set-name").value.trim();
   if(name) p.name = name;
   p.planner = {name: $("#set-pl-name").value.trim(), email: $("#set-pl-mail").value.trim()};
-  p.groupId = $("#set-group").value.trim();
+  p.groupId = newGroup;
   logAction("Einstellungen geändert (Name/Planer*in/Gruppe)");
   $("#settings-modal").hidden = true;
   save(); renderAll();
