@@ -593,7 +593,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     </div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner · Version 2.2 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner · Version 2.3 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -2047,7 +2047,7 @@ async function syncNow(silent){
   renderSyncStatus();
 }
 $("#btn-sync-settings").addEventListener("click", async () => {
-  const url = await askText("Adresse der Sync-API (z. B. https://euredomain.ch/gespraechsplaner/api.php) – leer lassen zum Abschalten:", SYNC.url);
+  const url = await askText("Adresse der Sync-API (z. B. https://euredomain.ch/gespraechsplaner/api.php) – leer lassen zum Abschalten:", SYNC.url || detectedApiUrl);
   if(url === null) return;
   if(!url.trim()){
     SYNC = {url:"", key:""};
@@ -2066,14 +2066,26 @@ $("#btn-sync-settings").addEventListener("click", async () => {
 
 // SSO-Konfiguration zentral vom Server holen (config.php), damit Updates
 // der index.html keine Einstellungen überschreiben; Fallback: MSAL_CONFIG oben.
+// Ohne eingerichteten Sync wird die api.php automatisch auf der eigenen
+// Domain gesucht – so sehen auch frische Browser sofort den Login-Button.
+let detectedApiUrl = "";
 async function loadRemoteConfig(){
-  if(!syncConfigured()) return;
+  let base = "";
+  if(syncConfigured()){
+    base = SYNC.url;
+  }else if(location.protocol === "http:" || location.protocol === "https:"){
+    base = new URL("api.php", location.href).href;
+  }
+  if(!base) return;
   try{
-    const cfg = await apiCall("config");
+    const res = await fetch(base.replace(/\/+$/, "") + "?action=config");
+    if(!res.ok) return;
+    const cfg = await res.json();
     if(cfg && cfg.msal && cfg.msal.clientId && cfg.msal.tenantId){
       MSAL_CONFIG.clientId = cfg.msal.clientId;
       MSAL_CONFIG.tenantId = cfg.msal.tenantId;
     }
+    if(!syncConfigured()) detectedApiUrl = base;  // Vorschlag für den Sync-Dialog
   }catch(e){ /* API nicht erreichbar -> lokale Werte gelten */ }
 }
 

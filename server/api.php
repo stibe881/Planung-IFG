@@ -35,6 +35,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit; // Preflight
 }
 
+// App-Konfiguration (Microsoft-SSO) ist ohne Schlüssel abrufbar: Client-ID
+// und Tenant-ID sind bei Single-Page-Apps designbedingt öffentliche Werte.
+// So sehen auch frische Browser (ohne Sync-Einrichtung) den Login-Button.
+if (($_GET['action'] ?? '') === 'config') {
+    echo json_encode(['msal' => [
+        'clientId' => (string)($config['MSAL_CLIENT_ID'] ?? ''),
+        'tenantId' => (string)($config['MSAL_TENANT_ID'] ?? ''),
+    ]]);
+    exit;
+}
+
 // Authentifizierung über den gemeinsamen Schlüssel
 $key = $_SERVER['HTTP_X_API_KEY'] ?? '';
 if (!hash_equals((string)($config['SYNC_KEY'] ?? ''), $key) || $config['SYNC_KEY'] === '') {
@@ -67,16 +78,6 @@ $db->query(
 );
 
 $action = $_GET['action'] ?? '';
-
-// App-Konfiguration (z. B. Microsoft-SSO) zentral aus der config.php ausliefern,
-// damit Updates der index.html keine Einstellungen überschreiben.
-if ($action === 'config') {
-    echo json_encode(['msal' => [
-        'clientId' => (string)($config['MSAL_CLIENT_ID'] ?? ''),
-        'tenantId' => (string)($config['MSAL_TENANT_ID'] ?? ''),
-    ]]);
-    exit;
-}
 
 if ($action === 'pull') {
     $rows = [];
