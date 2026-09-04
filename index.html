@@ -177,6 +177,15 @@ fieldset.series legend{font-size:.8rem; color:var(--muted); padding:0 6px}
 fieldset.series .grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px}
 fieldset.series label{font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; gap:3px; min-width:0}
 fieldset.series input{width:100%; min-width:0}
+.daypick-label{font-size:.78rem; color:var(--muted); margin-top:10px}
+.daypick{display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 10px}
+.daypick button{
+  appearance:none; font:inherit; font-size:.82rem; font-weight:600; cursor:pointer;
+  border:1px solid var(--line-strong); background:var(--surface); color:var(--muted);
+  border-radius:999px; padding:4px 11px;
+}
+.daypick button:hover{border-color:var(--accent); color:var(--accent)}
+.daypick button.on{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
 fieldset.series .btn{margin-top:10px}
 
 .matrixwrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--shadow)}
@@ -406,11 +415,24 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
         <fieldset class="series">
           <legend>Serie erzeugen</legend>
           <div class="grid">
-            <label>Datum <input type="date" id="ser-date"></label>
+            <label>Von (Datum) <input type="date" id="ser-from"></label>
+            <label>Bis (Datum) <input type="date" id="ser-to"></label>
+          </div>
+          <div class="daypick-label">An diesen Wochentagen (keine Auswahl = jeden Tag im Zeitraum):</div>
+          <div class="daypick" id="ser-days" role="group" aria-label="Wochentage">
+            <button type="button" data-day="1">Mo</button>
+            <button type="button" data-day="2">Di</button>
+            <button type="button" data-day="3">Mi</button>
+            <button type="button" data-day="4">Do</button>
+            <button type="button" data-day="5">Fr</button>
+            <button type="button" data-day="6">Sa</button>
+            <button type="button" data-day="0">So</button>
+          </div>
+          <div class="grid">
             <label>Erste Startzeit <input type="time" id="ser-start" value="13:00"></label>
+            <label>Fenster pro Tag <input type="number" id="ser-count" value="4" min="1" max="20"></label>
             <label>Dauer (Min.) <input type="number" id="ser-dur" value="55" min="5" step="5"></label>
             <label>Pause (Min.) <input type="number" id="ser-gap" value="5" min="0" step="5"></label>
-            <label>Anzahl Fenster <input type="number" id="ser-count" value="4" min="1" max="20"></label>
           </div>
           <button class="btn small" id="btn-series">Serie hinzufügen</button>
         </fieldset>
@@ -458,7 +480,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     <div class="slotgrid" id="slot-cards"></div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner IFG · Version 1.7 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner IFG · Version 1.8 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -917,10 +939,10 @@ function addPerson(kind){
   S.sample = false; touchPlan(); save(); renderAll();
 }
 
-function addSlot(date, start, end){
-  if(!date || !start || !end){ toast("Bitte Datum, Start- und Endzeit angeben."); return false; }
-  if(end <= start){ toast("Die Endzeit muss nach der Startzeit liegen."); return false; }
-  if(S.slots.some(sl => sl.date === date && sl.start === start)){ toast("Dieses Zeitfenster existiert bereits."); return false; }
+function addSlot(date, start, end, quiet){
+  if(!date || !start || !end){ if(!quiet) toast("Bitte Datum, Start- und Endzeit angeben."); return false; }
+  if(end <= start){ if(!quiet) toast("Die Endzeit muss nach der Startzeit liegen."); return false; }
+  if(S.slots.some(sl => sl.date === date && sl.start === start)){ if(!quiet) toast("Dieses Zeitfenster existiert bereits."); return false; }
   S.slots.push({id:newId("sl"), date, start, end});
   S.slots.sort(slotSort);
   return true;
@@ -1014,20 +1036,41 @@ $("#btn-add-slot").addEventListener("click", () => {
     S.sample = false; touchPlan(); save(); renderAll();
   }
 });
+document.querySelectorAll("#ser-days button").forEach(b =>
+  b.addEventListener("click", () => {
+    b.classList.toggle("on");
+    b.setAttribute("aria-pressed", b.classList.contains("on"));
+  }));
+
 $("#btn-series").addEventListener("click", () => {
-  const date = $("#ser-date").value, start = $("#ser-start").value;
+  const from = $("#ser-from").value;
+  const to = $("#ser-to").value || from;
+  const start = $("#ser-start").value;
   const dur = +$("#ser-dur").value, gap = +$("#ser-gap").value, count = +$("#ser-count").value;
-  if(!date || !start || !dur || !count){ toast("Bitte Datum, Startzeit, Dauer und Anzahl angeben."); return; }
-  let [h, m] = start.split(":").map(Number);
-  let added = 0;
+  if(!from || !start || !dur || !count){ toast("Bitte mindestens «Von»-Datum, Startzeit, Dauer und Fenster pro Tag angeben."); return; }
+  if(to < from){ toast("Das «Bis»-Datum muss nach dem «Von»-Datum liegen."); return; }
+  const days = [...document.querySelectorAll("#ser-days button.on")].map(b => +b.dataset.day);
   const two = n => String(n).padStart(2, "0");
-  for(let i = 0; i < count; i++){
-    const sMin = h*60 + m + i*(dur + gap);
-    const eMin = sMin + dur;
-    if(eMin >= 24*60) break;
-    if(addSlot(date, two(Math.floor(sMin/60)) + ":" + two(sMin%60), two(Math.floor(eMin/60)) + ":" + two(eMin%60))) added++;
+  const [h, m] = start.split(":").map(Number);
+  let added = 0, skipped = 0, dayGuard = 0;
+  const d0 = new Date(from + "T00:00"), d1 = new Date(to + "T00:00");
+  for(let d = new Date(d0); d <= d1 && dayGuard < 370; d.setDate(d.getDate() + 1), dayGuard++){
+    if(days.length && !days.includes(d.getDay())) continue;
+    const iso = d.getFullYear() + "-" + two(d.getMonth()+1) + "-" + two(d.getDate());
+    for(let i = 0; i < count; i++){
+      const sMin = h*60 + m + i*(dur + gap);
+      const eMin = sMin + dur;
+      if(eMin >= 24*60) break;
+      const ok = addSlot(iso, two(Math.floor(sMin/60)) + ":" + two(sMin%60), two(Math.floor(eMin/60)) + ":" + two(eMin%60), true);
+      if(ok) added++; else skipped++;
+    }
   }
-  if(added){ S.sample = false; touchPlan(); save(); renderAll(); toast(added + " Zeitfenster hinzugefügt."); }
+  if(added){
+    S.sample = false; touchPlan(); save(); renderAll();
+    toast(added + " Zeitfenster hinzugefügt" + (skipped ? " (" + skipped + " gab es schon)." : "."));
+  }else{
+    toast(skipped ? "Alle diese Zeitfenster existieren bereits." : "Im gewählten Zeitraum liegt keiner der gewählten Wochentage.");
+  }
 });
 
 function runAutoPlan(){
