@@ -68,6 +68,16 @@ $db->query(
 
 $action = $_GET['action'] ?? '';
 
+// App-Konfiguration (z. B. Microsoft-SSO) zentral aus der config.php ausliefern,
+// damit Updates der index.html keine Einstellungen überschreiben.
+if ($action === 'config') {
+    echo json_encode(['msal' => [
+        'clientId' => (string)($config['MSAL_CLIENT_ID'] ?? ''),
+        'tenantId' => (string)($config['MSAL_TENANT_ID'] ?? ''),
+    ]]);
+    exit;
+}
+
 if ($action === 'pull') {
     $rows = [];
     $res = $db->query('SELECT id, name, version, json, updated_by, updated_at FROM projekte');

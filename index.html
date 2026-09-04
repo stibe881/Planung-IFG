@@ -593,7 +593,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     </div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner · Version 2.1 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner · Version 2.2 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -2064,11 +2064,27 @@ $("#btn-sync-settings").addEventListener("click", async () => {
   syncNow(false);
 });
 
-initMsal();
+// SSO-Konfiguration zentral vom Server holen (config.php), damit Updates
+// der index.html keine Einstellungen überschreiben; Fallback: MSAL_CONFIG oben.
+async function loadRemoteConfig(){
+  if(!syncConfigured()) return;
+  try{
+    const cfg = await apiCall("config");
+    if(cfg && cfg.msal && cfg.msal.clientId && cfg.msal.tenantId){
+      MSAL_CONFIG.clientId = cfg.msal.clientId;
+      MSAL_CONFIG.tenantId = cfg.msal.tenantId;
+    }
+  }catch(e){ /* API nicht erreichbar -> lokale Werte gelten */ }
+}
+
 renderAll();
 renderAbsWho();
 showTab("daten");
-if(syncConfigured()) syncNow(true);
+loadRemoteConfig().then(() => {
+  initMsal();
+  updateAuthUi();
+  if(syncConfigured()) syncNow(true);
+});
 </script>
 
 
