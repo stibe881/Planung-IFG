@@ -53,6 +53,11 @@ body{
   max-width:100vw; overflow-x:clip;
 }
 .mono{font-family:"Spline Sans Mono","SF Mono",Consolas,monospace}
+svg.icon{
+  width:1em; height:1em; vertical-align:-0.15em; flex-shrink:0;
+  fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+}
+.btn svg.icon{margin-right:6px}
 header.app{
   display:flex; align-items:center; gap:16px; flex-wrap:wrap;
   padding:18px 28px 14px; border-bottom:1px solid var(--line); background:var(--surface);
@@ -342,7 +347,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     <div class="sub">Schüler*innen‑Gespräche planen: Wer muss dabei sein, wer kann wann – und welches Zeitfenster passt?</div>
   </div>
   <div class="spacer"></div>
-  <button class="btn primary" id="btn-autoassign" title="Sucht für alle Schüler*innen automatisch einen passenden Termin">⚡ Automatisch zuordnen</button>
+  <button class="btn primary" id="btn-autoassign" title="Sucht für alle Schüler*innen automatisch einen passenden Termin"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Automatisch zuordnen</button>
   <button class="btn small" id="btn-export-json" title="Alle Daten als Datei sichern">Daten sichern</button>
   <button class="btn small" id="btn-import-json">Daten laden</button>
   <input type="file" id="file-import" accept="application/json" hidden>
@@ -449,7 +454,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     <div class="slotgrid" id="slot-cards"></div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner IFG · Version 1.5 vom 03.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner IFG · Version 1.6 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -519,6 +524,13 @@ let S = load() || sampleData();
 const $ = sel => document.querySelector(sel);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const WEEKDAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+// Inline-SVG-Icons (Strichstärke/Farbe erben vom Text)
+const ICONS = {
+  edit:'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  x:'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  pin:'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>',
+  warn:'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+};
 function fmtDate(iso){
   const [y,m,d] = iso.split("-").map(Number);
   const wd = WEEKDAYS[new Date(y, m-1, d).getDay()];
@@ -655,20 +667,20 @@ function renderLists(){
   $("#list-students").innerHTML = S.students.map(st => {
     const n = reqStaffIds(st.id).length;
     return `<li><span class="nm">${esc(st.name)}</span><span class="meta">${n} MA</span>
-      <button class="iconbtn edit" data-act="rename-student" data-id="${st.id}" title="Umbenennen">✎</button>
-      <button class="iconbtn" data-act="del-student" data-id="${st.id}" title="Entfernen">✕</button></li>`;
+      <button class="iconbtn edit" data-act="rename-student" data-id="${st.id}" title="Umbenennen">${ICONS.edit}</button>
+      <button class="iconbtn" data-act="del-student" data-id="${st.id}" title="Entfernen">${ICONS.x}</button></li>`;
   }).join("") || `<li><span class="nm meta">Noch niemand erfasst.</span></li>`;
 
   $("#list-staff").innerHTML = S.staff.map(m => {
     const n = S.students.filter(st => (S.req[st.id]||{})[m.id]).length;
     return `<li><span class="nm">${esc(m.name)}</span><span class="meta">${n} Gespräche</span>
-      <button class="iconbtn edit" data-act="rename-staff" data-id="${m.id}" title="Umbenennen">✎</button>
-      <button class="iconbtn" data-act="del-staff" data-id="${m.id}" title="Entfernen">✕</button></li>`;
+      <button class="iconbtn edit" data-act="rename-staff" data-id="${m.id}" title="Umbenennen">${ICONS.edit}</button>
+      <button class="iconbtn" data-act="del-staff" data-id="${m.id}" title="Entfernen">${ICONS.x}</button></li>`;
   }).join("") || `<li><span class="nm meta">Noch niemand erfasst.</span></li>`;
 
   $("#list-slots").innerHTML = S.slots.map(sl =>
     `<li><span class="nm">${esc(slotLabel(sl))}</span>
-      <button class="iconbtn" data-act="del-slot" data-id="${sl.id}" title="Entfernen">✕</button></li>`
+      <button class="iconbtn" data-act="del-slot" data-id="${sl.id}" title="Entfernen">${ICONS.x}</button></li>`
   ).join("") || `<li><span class="nm meta">Noch keine Zeitfenster.</span></li>`;
 }
 
@@ -716,7 +728,7 @@ function renderAvailMatrix(){
         aria-pressed="${av}" aria-label="${esc(m.name)} am ${esc(slotLabel(sl))}">${av?"A":"×"}</button></td>`;
     }
     const short = needCount > availCount;
-    h += `<td class="mono" style="padding:0 10px;${short?"color:var(--req);font-weight:600":"color:var(--muted)"}">${needCount} / ${availCount}${short?" ⚠":""}</td></tr>`;
+    h += `<td class="mono" style="padding:0 10px;${short?"color:var(--req);font-weight:600":"color:var(--muted)"}">${needCount} / ${availCount}${short?" "+ICONS.warn:""}</td></tr>`;
   }
   h += `</tbody></table>`;
   wrap.innerHTML = h;
@@ -742,7 +754,7 @@ function renderStuAvailMatrix(){
         aria-pressed="${av}" aria-label="Gespräch ${esc(st.name)} am ${esc(slotLabel(sl))}">${av?"A":"×"}</button></td>`;
     }
     const none = cnt === 0;
-    h += `<td class="mono" style="padding:0 10px;${none?"color:var(--req);font-weight:600":"color:var(--muted)"}">${cnt} / ${S.slots.length}${none?" ⚠":""}</td></tr>`;
+    h += `<td class="mono" style="padding:0 10px;${none?"color:var(--req);font-weight:600":"color:var(--muted)"}">${cnt} / ${S.slots.length}${none?" "+ICONS.warn:""}</td></tr>`;
   }
   h += `</tbody></table>`;
   wrap.innerHTML = h;
@@ -828,7 +840,7 @@ function renderPlan(){
     const convs = S.students.filter(st => A[st.id] === sl.id).sort(byName);
     const items = convs.map(st => {
       const names = reqStaffIds(st.id).map(mid => S.staff.find(m => m.id===mid)?.name).filter(Boolean);
-      return `<li><div class="who">${esc(st.name)}${S.fixed[st.id] ? " 📌" : ""}</div>
+      return `<li><div class="who">${esc(st.name)}${S.fixed[st.id] ? " "+ICONS.pin : ""}</div>
         <div class="with">${esc(names.join(", ")) || "ohne Mitarbeiter*innen"}</div></li>`;
     }).join("");
     return `<div class="slotcard"><header><span class="when mono">${esc(slotLabel(sl))}</span>
@@ -1030,6 +1042,7 @@ $("#btn-autoassign").addEventListener("click", runAutoPlan);
 
 $("#btn-clear-all").addEventListener("click", () => {
   // Nur Beispieldaten – ohne Rückfrage leeren, Banner verschwindet sofort
+  $("#sample-banner").hidden = true;
   S = {students:[], staff:[], slots:[], req:{}, unavail:{}, stuUnavail:{}, fixed:{}, plan:null, sample:false};
   save(); renderAll(); showTab("daten");
   toast("Beispieldaten entfernt – du startest mit einer leeren Planung.");
