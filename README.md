@@ -82,6 +82,51 @@ man mit einer leeren Planung.
 - **Barrierefreiheit**: Pfeiltasten-Navigation in den Matrizen,
   Schriftgrössen-Umschalter (A−/A+), Sprunglink, beschriftete Bedienelemente.
 
+## Version 2.1: Zentrale Datenbank (Sync) und Team-Funktionen
+
+### Neue Funktionen
+
+- **Übergreifende Konfliktprüfung**: Ist dieselbe Mitarbeiter*in (Abgleich über
+  den Namen) in zwei Angeboten zeitlich überschneidend verplant, erscheint in
+  der Planung ein roter Hinweis.
+- **Archiv & Kopie**: Angebote lassen sich archivieren (nur noch Ansicht,
+  reaktivierbar) und als Kopie für ein neues Semester anlegen (Personen,
+  Zuordnungen und Gesprächslängen übernommen; Termine, Status, Plan leer).
+- **Fortschritt & Filter**: Balken mit der Status-Verteilung (durchgeführt/
+  bestätigt/informiert/offen) und Tabellen-Filter «nur ohne Termin» /
+  «nur Organisation offen».
+- **Sperrzeiten**: Abwesenheiten über einen Datumsbereich in einem Schritt
+  erfassen (für Mitarbeiter*innen oder Gespräche), statt Zellen einzeln zu
+  klicken.
+- **Änderungsprotokoll**: Pro Angebot die letzten 200 Änderungen mit
+  Zeitstempel und (bei aktivem SSO) Namen – Knopf «Protokoll».
+
+### Zentrale Datenbank einrichten (MySQL + PHP-API)
+
+Damit alle Planer*innen denselben Stand sehen, synchronisiert das Tool über
+eine kleine PHP-API auf eurem Webspace (der Browser kann nicht direkt mit
+MySQL sprechen, und Zugangsdaten dürfen nie in die App):
+
+1. Ordner `server/` auf den Webspace hochladen (z. B. nach
+   `/gespraechsplaner/`).
+2. Dort `config.example.php` nach `config.php` kopieren und ausfüllen:
+   DB-Zugangsdaten, ein selbst gewählter langer `SYNC_KEY`
+   (z. B. `openssl rand -hex 24`) und unter `ALLOWED_ORIGINS` die Adresse,
+   unter der die App läuft.
+3. Die Tabelle legt die API beim ersten Aufruf automatisch an.
+4. Im Tool auf **«Sync…»** klicken, API-Adresse
+   (`https://…/gespraechsplaner/api.php`) und den `SYNC_KEY` eintragen.
+
+Danach synchronisiert das Tool automatisch (ca. 3 Sekunden nach jeder
+Änderung sowie beim Öffnen). Konflikte werden erkannt (Versionszähler pro
+Angebot) und zur Entscheidung vorgelegt. Ohne Sync-Konfiguration arbeitet
+das Tool wie bisher rein lokal.
+
+**Sicherheit**: `config.php` niemals ins Repository einchecken (steht in
+`.gitignore`). Datenbank-Passwörter, die je per Mail/Chat geteilt wurden,
+beim Hoster neu setzen. Der `SYNC_KEY` schützt die API vor Fremdzugriff;
+alle Personen mit Schlüssel können lesen und schreiben.
+
 ## CI/CD
 
 Bei jedem Push läuft die GitHub-Actions-Pipeline (`.github/workflows/ci-cd.yml`):

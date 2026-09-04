@@ -186,6 +186,16 @@ fieldset.series input{width:100%; min-width:0}
 }
 .daypick button:hover{border-color:var(--accent); color:var(--accent)}
 .daypick button.on{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.pb-sync{font-size:.82rem; color:var(--muted)}
+.pb-sync.err{color:var(--req); font-weight:600}
+.pb-sync.ok{color:var(--ok-ink)}
+#progress{margin:0 0 18px; max-width:560px}
+#progress .bar{display:flex; height:12px; border-radius:999px; overflow:hidden; border:1px solid var(--line)}
+#progress .bar span{display:block; height:100%}
+#progress .cap{font-size:.8rem; color:var(--muted); margin-top:4px}
+#log-list table{border-collapse:collapse; width:100%; font-size:.84rem}
+#log-list td{border-bottom:1px solid var(--line); padding:5px 8px; vertical-align:top}
+#log-list td.when{white-space:nowrap; color:var(--muted); font-family:"Spline Sans Mono",monospace; font-size:.78rem}
 fieldset.series .btn{margin-top:10px}
 
 .matrixwrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:var(--shadow)}
@@ -423,8 +433,13 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
   <select id="project-select" aria-label="Angebot oder Abteilung wählen"></select>
   <button class="btn small" id="btn-project-new">Neues Angebot</button>
   <button class="btn small" id="btn-project-settings" title="Name und verantwortliche Planer*in bearbeiten">Einstellungen</button>
+  <button class="btn small" id="btn-project-copy" title="Neues Angebot mit denselben Personen und Zuordnungen, aber ohne Termine">Kopieren</button>
+  <button class="btn small" id="btn-project-archive"></button>
   <button class="btn small danger" id="btn-project-del" title="Dieses Angebot löschen">Löschen</button>
+  <button class="btn small" id="btn-log" title="Änderungsprotokoll anzeigen">Protokoll</button>
   <span class="pb-planner" id="pb-planner"></span>
+  <span class="pb-sync" id="sync-status" hidden></span>
+  <button class="btn small" id="btn-sync-settings" title="Synchronisation mit der zentralen Datenbank einrichten">Sync…</button>
   <span class="pb-lock" id="pb-lock" hidden>Nur Ansicht – Bearbeitung durch die verantwortliche Planer*in</span>
 </div>
 
@@ -518,6 +533,19 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
   <section class="tabpane" id="pane-verfueg" hidden>
     <h2>Verfügbarkeit</h2>
     <p class="hint">Standardmässig ist alles überall möglich (<strong>A</strong>). Klicke auf eine Zelle, wenn etwas in einem Zeitfenster <em>nicht</em> geht – der Planer berücksichtigt beides automatisch.</p>
+    <fieldset class="series noprint" style="margin:0 0 20px">
+      <legend>Abwesenheit / Sperrzeit erfassen</legend>
+      <div class="grid">
+        <label>Wer <select id="abs-who"></select></label>
+        <label>Setzen auf <select id="abs-mode">
+          <option value="off">nicht verfügbar</option>
+          <option value="on">verfügbar</option>
+        </select></label>
+        <label>Von (Datum) <input type="date" id="abs-from"></label>
+        <label>Bis (Datum) <input type="date" id="abs-to"></label>
+      </div>
+      <button class="btn small" id="btn-abs">Auf alle Zeitfenster im Zeitraum anwenden</button>
+    </fieldset>
     <h3 class="subhead">Mitarbeiter*innen</h3>
     <p class="hint">Wann kann welche Mitarbeiter*in? Die Spalte rechts zeigt, ob die Verfügbarkeit für die Zahl der zugeordneten Gespräche überhaupt reicht.</p>
     <div class="matrixwrap" id="matrix-avail"></div>
@@ -539,11 +567,17 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
       <button class="btn" id="btn-export-csv">CSV</button>
       <button class="btn" id="btn-export-xlsx">Excel (.xlsx)</button>
       <button class="btn" id="btn-export-ics">Outlook (.ics)</button>
+      <select id="plan-filter" aria-label="Tabelle filtern">
+        <option value="alle">alle anzeigen</option>
+        <option value="ohne">nur ohne Termin</option>
+        <option value="offen">nur Organisation offen</option>
+      </select>
       <span class="note" id="plan-ts"></span>
     </div>
     <div class="diag" id="diag"></div>
     <div class="diag" id="suggestions"></div>
     <div class="summary" id="summary"></div>
+    <div id="progress" class="noprint"></div>
     <div id="result-table"></div>
     <div class="slotgrid" id="slot-cards"></div>
 
@@ -559,7 +593,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     </div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner · Version 2.0 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner · Version 2.1 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -572,6 +606,14 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
       <button class="btn" id="modal-no">Abbrechen</button>
       <button class="btn primary" id="modal-yes">OK</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="log-modal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="log-title" style="max-width:600px">
+    <h3 id="log-title" style="margin:0 0 10px">Änderungsprotokoll · <span id="log-project"></span></h3>
+    <div id="log-list" style="max-height:55vh; overflow:auto"></div>
+    <div class="modal-actions"><button class="btn" id="log-close">Schliessen</button></div>
   </div>
 </div>
 
@@ -625,7 +667,7 @@ function sampleData(){
 
 function dataDefaults(){
   return {students:[], staff:[], slots:[], req:{}, unavail:{}, stuUnavail:{}, fixed:{},
-          status:{}, notes:{}, lens:{}, plan:null, sample:false};
+          status:{}, notes:{}, lens:{}, log:[], plan:null, sample:false};
 }
 function newProject(name, data){
   return {id:newId("pj"), name, planner:{name:"", email:""}, data:{...dataDefaults(), ...(data || {})}};
@@ -657,7 +699,8 @@ function loadRoot(){
 let ROOT = loadRoot();
 const activeProject = () => ROOT.projects.find(p => p.id === ROOT.active) || ROOT.projects[0];
 let S = activeProject().data;
-function save(){
+function save(markDirty = true){
+  if(markDirty){ activeProject().dirty = true; if(typeof scheduleSync === "function") scheduleSync(); }
   try{ localStorage.setItem(LS_ROOT_KEY, JSON.stringify(ROOT)); }catch(e){ /* z.B. privates Fenster */ }
 }
 
@@ -679,7 +722,13 @@ function doUndo(){
 /* ---------- Microsoft-Anmeldung & Bearbeitungsrechte ---------- */
 let msalApp = null, msalAccount = null;
 const ssoConfigured = () => !!(MSAL_CONFIG.clientId && MSAL_CONFIG.tenantId);
+function logAction(txt){
+  S.log = S.log || [];
+  S.log.unshift({ts:Date.now(), user: msalAccount ? (msalAccount.name || msalAccount.username) : "lokal", txt});
+  if(S.log.length > 200) S.log.length = 200;
+}
 function canEdit(){
+  if(activeProject().archived) return false; // Archiv ist immer nur Ansicht
   if(!ssoConfigured()) return true;          // offener Modus ohne SSO-Konfiguration
   if(!msalAccount) return false;             // ohne Anmeldung nur Ansicht
   const pe = ((activeProject().planner || {}).email || "").trim().toLowerCase();
@@ -688,6 +737,7 @@ function canEdit(){
 }
 function guardEdit(){
   if(canEdit()) return true;
+  if(activeProject().archived){ toast("Dieses Angebot ist archiviert – über «Reaktivieren» lässt es sich wieder bearbeiten."); return false; }
   toast(msalAccount
     ? "Nur die verantwortliche Planer*in dieses Angebots kann bearbeiten."
     : "Bitte zuerst oben rechts mit Microsoft anmelden.");
@@ -986,6 +1036,7 @@ function renderAvailMatrix(){
   h += `</tbody></table>`;
   wrap.innerHTML = h;
   renderStuAvailMatrix();
+  if(typeof renderAbsWho === "function") renderAbsWho();
 }
 
 function renderStuAvailMatrix(){
@@ -1031,7 +1082,54 @@ function renderDiagnostics(){
       items.push({cls:"warn", txt:`Für ${st.name} gibt es kein Zeitfenster, in dem das Gespräch möglich ist und alle zugeordneten Mitarbeiter*innen verfügbar sind.`});
   }
   for(const w of (S.plan?.warnings || [])) items.push({cls:"warn", txt:w});
+  for(const c of crossProjectConflicts()) items.push({cls:"err", txt:c});
   box.innerHTML = items.map(i => `<div class="item ${i.cls==="err"?"err":""}">${esc(i.txt)}</div>`).join("");
+}
+
+// Doppelbelegungen derselben Person über verschiedene Angebote hinweg (Abgleich über den Namen)
+function crossProjectConflicts(){
+  const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60 + m; };
+  const events = {}; // nameKey -> [{project, student, date, s, e, label}]
+  for(const p of ROOT.projects){
+    const d = p.data;
+    if(!d.plan) continue;
+    const staffById = {}; d.staff.forEach(m => staffById[m.id] = m.name);
+    const slotByIdL = id => d.slots.find(sl => sl.id === id);
+    const lenL = sid => Math.max(1, Math.min(3, +((d.lens||{})[sid]) || 1));
+    for(const st of d.students){
+      const startId = d.plan.assignments[st.id];
+      if(!startId) continue;
+      const idx = d.slots.findIndex(sl => sl.id === startId);
+      if(idx < 0) continue;
+      const seq = [];
+      for(let k = 0; k < lenL(st.id); k++){
+        const sl = d.slots[idx + k];
+        if(!sl || sl.date !== d.slots[idx].date) break;
+        seq.push(sl);
+      }
+      if(!seq.length) continue;
+      const s = toMin(seq[0].start), e = toMin(seq[seq.length-1].end), date = seq[0].date;
+      for(const mid of Object.keys(d.req[st.id] || {})){
+        const nm = (staffById[mid] || "").trim();
+        if(!nm) continue;
+        const key = nm.toLowerCase();
+        (events[key] = events[key] || []).push({project:p.name, student:st.name, name:nm, date, s, e,
+          label: fmtDate(date) + " " + seq[0].start + "–" + seq[seq.length-1].end});
+      }
+    }
+  }
+  const out = [];
+  for(const key of Object.keys(events)){
+    const list = events[key];
+    for(let i = 0; i < list.length; i++)
+      for(let j = i + 1; j < list.length; j++){
+        const a = list[i], b = list[j];
+        if(a.project === b.project) continue; // innerhalb eines Angebots verhindert es der Planer selbst
+        if(a.date === b.date && a.s < b.e && b.s < a.e)
+          out.push(`Übergreifender Konflikt: ${a.name} ist am ${a.label} in «${a.project}» (Gespräch ${a.student}) und überschneidend am ${b.label} in «${b.project}» (Gespräch ${b.student}) verplant.`);
+      }
+  }
+  return [...new Set(out)].slice(0, 8);
 }
 
 const ORG_STATUS = [
@@ -1074,6 +1172,14 @@ function renderPlan(){
     `<span class="pill ok"><span class="dot"></span>${placed} von ${S.students.length} geplant</span>` +
     (fixedCount ? `<span class="pill fix"><span class="dot"></span>${fixedCount} fixiert</span>` : "") +
     (unplaced ? `<span class="pill bad"><span class="dot"></span>${unplaced} ohne Termin</span>` : "");
+  // Fortschritt der Organisation (Status-Verteilung)
+  const cnt = {offen:0, informiert:0, bestaetigt:0, durchgefuehrt:0};
+  for(const st of S.students) cnt[S.status[st.id] || "offen"] = (cnt[S.status[st.id] || "offen"] || 0) + 1;
+  const total = S.students.length || 1;
+  const segs = [["durchgefuehrt","var(--ok)"],["bestaetigt","var(--accent)"],["informiert","var(--warn)"],["offen","var(--line-strong)"]];
+  $("#progress").innerHTML = S.students.length ? `<div class="bar" role="img" aria-label="Organisationsfortschritt">${
+      segs.map(([k,c]) => cnt[k] ? `<span style="width:${(cnt[k]/total*100).toFixed(1)}%;background:${c}" title="${k}: ${cnt[k]}"></span>` : "").join("")
+    }</div><div class="cap">${cnt.durchgefuehrt} durchgeführt · ${cnt.bestaetigt} bestätigt · ${cnt.informiert} Eltern informiert · ${cnt.offen} offen</div>` : "";
 
   const slotOptions = st => {
     const cands = new Set(candidateStartIds(st.id));
@@ -1085,6 +1191,8 @@ function renderPlan(){
     <th>Schüler*in</th><th>Termin</th><th>Status</th><th>Organisation</th><th>Mitarbeiter*innen</th></tr></thead><tbody>`;
   for(const st of [...S.students].sort(byName)){
     const slId = A[st.id];
+    if(planFilter === "ohne" && slId) continue;
+    if(planFilter === "offen" && (S.status[st.id] || "offen") !== "offen") continue;
     const isFixed = !!S.fixed[st.id];
     const staffNames = reqStaffIds(st.id).map(mid => staffName(mid));
     const L = lenOf(st.id);
@@ -1194,11 +1302,18 @@ let activeTab = "daten";
 function renderProjectBar(){
   const sel = $("#project-select");
   sel.innerHTML = ROOT.projects.map(p =>
-    `<option value="${p.id}" ${p.id === ROOT.active ? "selected" : ""}>${esc(p.name)}</option>`).join("");
-  const pl = activeProject().planner || {};
-  $("#pb-planner").textContent = pl.name
+    `<option value="${p.id}" ${p.id === ROOT.active ? "selected" : ""}>${esc(p.name)}${p.archived ? " (Archiv)" : ""}</option>`).join("");
+  const p = activeProject();
+  const pl = p.planner || {};
+  $("#pb-planner").textContent = (pl.name
     ? "Verantwortlich: " + pl.name + (pl.email ? " (" + pl.email + ")" : "")
-    : "Keine verantwortliche Planer*in hinterlegt";
+    : "Keine verantwortliche Planer*in hinterlegt") + (p.archived ? " · ARCHIVIERT" : "");
+  $("#btn-project-archive").textContent = p.archived ? "Reaktivieren" : "Archivieren";
+  const lock = $("#pb-lock");
+  lock.textContent = p.archived
+    ? "Archiviert – nur Ansicht"
+    : "Nur Ansicht – Bearbeitung durch die verantwortliche Planer*in";
+  renderSyncStatus();
   updateAuthUi();
 }
 function renderAll(){
@@ -1261,6 +1376,7 @@ function addPerson(kind){
   if(list.some(p => p.name.toLowerCase() === name.toLowerCase())){ toast("«" + name + "» ist bereits erfasst."); return; }
   pushUndo();
   list.push({id:newId(kind === "student" ? "sc" : "ma"), name});
+  logAction((kind === "student" ? "Schüler*in" : "Mitarbeiter*in") + " «" + name + "» hinzugefügt");
   inp.value = ""; inp.focus();
   S.sample = false; touchPlan(); save(); renderAll();
 }
@@ -1279,6 +1395,7 @@ async function removeEntity(kind, id){
     const st = S.students.find(x => x.id === id); if(!st) return;
     if(!(await ask(`«${st.name}» samt Zuordnungen entfernen?`))) return;
     pushUndo();
+    logAction("Schüler*in «" + st.name + "» entfernt");
     S.students = S.students.filter(x => x.id !== id);
     delete S.req[id]; delete S.fixed[id]; delete S.stuUnavail[id];
     delete S.status[id]; delete S.notes[id]; delete S.lens[id];
@@ -1287,6 +1404,7 @@ async function removeEntity(kind, id){
     const m = S.staff.find(x => x.id === id); if(!m) return;
     if(!(await ask(`«${m.name}» samt Zuordnungen und Verfügbarkeiten entfernen?`))) return;
     pushUndo();
+    logAction("Mitarbeiter*in «" + m.name + "» entfernt");
     S.staff = S.staff.filter(x => x.id !== id);
     delete S.unavail[id];
     for(const sid of Object.keys(S.req)) delete S.req[sid][id];
@@ -1294,6 +1412,7 @@ async function removeEntity(kind, id){
     const sl = S.slots.find(x => x.id === id); if(!sl) return;
     if(!(await ask(`Zeitfenster ${slotLabel(sl)} entfernen?`))) return;
     pushUndo();
+    logAction("Zeitfenster " + slotLabel(sl) + " entfernt");
     S.slots = S.slots.filter(x => x.id !== id);
     for(const mid of Object.keys(S.unavail)) delete S.unavail[mid][id];
     for(const sid of Object.keys(S.stuUnavail)) delete S.stuUnavail[sid][id];
@@ -1308,6 +1427,7 @@ async function renameEntity(kind, id){
   const name = await askText("Neuer Name:", p.name);
   if(!name || !name.trim()) return;
   pushUndo();
+  logAction("«" + p.name + "» umbenannt in «" + name.trim() + "»");
   p.name = name.trim();
   save(); renderAll();
 }
@@ -1346,6 +1466,7 @@ document.addEventListener("click", ev => {
     askText("Notiz zum Gespräch " + st.name + ":", S.notes[sid] || "").then(txt => {
       if(txt === null) return;
       pushUndo();
+      logAction("Notiz für «" + st.name + "» " + (txt.trim() ? "aktualisiert" : "gelöscht"));
       if(txt.trim()) S.notes[sid] = txt.trim(); else delete S.notes[sid];
       save(); renderPlan();
     });
@@ -1365,6 +1486,10 @@ document.addEventListener("change", ev => {
   if(orgSel){
     if(!guardEdit()){ renderPlan(); return; }
     pushUndo();
+    {
+      const stN = (S.students.find(x => x.id === orgSel.dataset.st) || {}).name || "?";
+      logAction("Organisationsstatus für «" + stN + "»: " + orgSel.value);
+    }
     S.status[orgSel.dataset.st] = orgSel.value;
     save(); renderPlan();
     return;
@@ -1377,6 +1502,12 @@ document.addEventListener("change", ev => {
   if(!guardEdit()){ renderPlan(); return; }
   const sid = sel.dataset.st;
   pushUndo();
+  {
+    const stN = (S.students.find(x => x.id === sid) || {}).name || "?";
+    logAction(sel.value === "__auto" ? "Termin für «" + stN + "» wieder automatisch"
+      : sel.value === "__none" ? "Termin für «" + stN + "» entfernt"
+      : "Termin für «" + stN + "» fixiert auf " + slotLabel(slotById(sel.value)));
+  }
   if(sel.value === "__auto"){ delete S.fixed[sid]; }
   else if(sel.value === "__none"){
     delete S.fixed[sid];
@@ -1436,6 +1567,7 @@ $("#btn-series").addEventListener("click", () => {
     }
   }
   if(added){
+    logAction(added + " Zeitfenster als Serie hinzugefügt (" + fmtDate(from) + "–" + fmtDate(to) + ")");
     S.sample = false; touchPlan(); save(); renderAll();
     toast(added + " Zeitfenster hinzugefügt" + (skipped ? " (" + skipped + " gab es schon)." : "."));
   }else{
@@ -1446,6 +1578,7 @@ $("#btn-series").addEventListener("click", () => {
 function runAutoPlan(){
   if(!guardEdit()) return;
   pushUndo();
+  logAction("Termine automatisch geplant");
   if(!S.students.length){ showTab("daten"); toast("Bitte zuerst Schüler*innen erfassen."); return; }
   if(!S.slots.length){ showTab("daten"); toast("Bitte zuerst Zeitfenster erfassen."); return; }
   solvePlan();
@@ -1652,6 +1785,7 @@ $("#file-xlsx").addEventListener("change", ev => {
       });
     }
     S.students = S.students.filter(Boolean);
+    logAction("Stammdaten und Zuordnung aus Excel importiert (" + S.students.length + " Schüler*innen, " + S.staff.length + " MA)");
     save(); renderAll(); showTab("matrix");
     toast("Excel importiert – bitte die Zuordnungsmatrix kurz kontrollieren.");
   }).catch(() => toast("Die Excel-Datei konnte nicht gelesen werden. Erwartet wird eine Matrix: erste Spalte Mitarbeiter*innen, erste Zeile Schüler*innen, «R» in den Zellen."));
@@ -1661,7 +1795,7 @@ $("#file-xlsx").addEventListener("change", ev => {
 $("#project-select").addEventListener("change", ev => {
   ROOT.active = ev.target.value;
   S = activeProject().data;
-  save(); renderAll();
+  save(false); renderAll();
 });
 $("#btn-project-new").addEventListener("click", async () => {
   if(ssoConfigured() && !msalAccount){ toast("Bitte zuerst mit Microsoft anmelden."); return; }
@@ -1739,9 +1873,202 @@ document.addEventListener("keydown", ev => {
   if(nb) nb.focus();
 });
 
+/* ---------- Filter der Planungstabelle ---------- */
+let planFilter = "alle";
+$("#plan-filter").addEventListener("change", ev => { planFilter = ev.target.value; renderPlan(); });
+
+/* ---------- Abwesenheiten / Sperrzeiten ---------- */
+function renderAbsWho(){
+  const sel = $("#abs-who");
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML =
+    `<optgroup label="Mitarbeiter*innen">${[...S.staff].sort(byName).map(m => `<option value="ma:${m.id}">${esc(m.name)}</option>`).join("")}</optgroup>` +
+    `<optgroup label="Gespräche (Schüler*innen)">${[...S.students].sort(byName).map(st => `<option value="st:${st.id}">${esc(st.name)}</option>`).join("")}</optgroup>`;
+  if([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+$("#btn-abs").addEventListener("click", () => {
+  if(!guardEdit()) return;
+  const who = $("#abs-who").value;
+  const from = $("#abs-from").value;
+  const to = $("#abs-to").value || from;
+  const off = $("#abs-mode").value === "off";
+  if(!who || !from){ toast("Bitte Person und mindestens ein «Von»-Datum wählen."); return; }
+  if(to < from){ toast("Das «Bis»-Datum muss nach dem «Von»-Datum liegen."); return; }
+  const [kind, id] = who.split(":");
+  const store = kind === "ma" ? (S.unavail[id] = S.unavail[id] || {}) : (S.stuUnavail[id] = S.stuUnavail[id] || {});
+  const hits = S.slots.filter(sl => sl.date >= from && sl.date <= to);
+  if(!hits.length){ toast("Im gewählten Zeitraum liegen keine Zeitfenster."); return; }
+  pushUndo();
+  for(const sl of hits){ if(off) store[sl.id] = 1; else delete store[sl.id]; }
+  const nm = kind === "ma" ? staffName(id) : (S.students.find(s => s.id === id) || {}).name;
+  logAction(`${nm}: ${hits.length} Zeitfenster (${fmtDate(from)}–${fmtDate(to)}) auf «${off ? "nicht verfügbar" : "verfügbar"}» gesetzt`);
+  touchPlan(); save(); renderAll();
+  toast(hits.length + " Zeitfenster für " + nm + (off ? " gesperrt." : " freigegeben."));
+});
+
+/* ---------- Änderungsprotokoll ---------- */
+$("#btn-log").addEventListener("click", () => {
+  $("#log-project").textContent = activeProject().name;
+  const list = S.log || [];
+  $("#log-list").innerHTML = list.length
+    ? `<table>${list.map(e => `<tr><td class="when">${new Date(e.ts).toLocaleString("de-CH", {dateStyle:"short", timeStyle:"short"})}<br>${esc(e.user)}</td><td>${esc(e.txt)}</td></tr>`).join("")}</table>`
+    : `<p class="cardhint">Noch keine protokollierten Änderungen. (Einzelklicks in den Matrizen werden nicht einzeln protokolliert.)</p>`;
+  $("#log-modal").hidden = false;
+  $("#log-close").focus();
+});
+$("#log-close").addEventListener("click", () => { $("#log-modal").hidden = true; });
+$("#log-modal").addEventListener("click", ev => { if(ev.target === $("#log-modal")) $("#log-modal").hidden = true; });
+document.addEventListener("keydown", ev => {
+  if(ev.key === "Escape" && !$("#log-modal").hidden) $("#log-modal").hidden = true;
+});
+
+/* ---------- Archivieren & Kopieren ---------- */
+$("#btn-project-archive").addEventListener("click", async () => {
+  const p = activeProject();
+  if(p.archived){
+    // Reaktivieren muss trotz Archiv-Sperre möglich sein -> nur SSO-Rolle prüfen
+    const pe = ((p.planner || {}).email || "").trim().toLowerCase();
+    if(ssoConfigured() && (!msalAccount || (pe && (msalAccount.username || "").toLowerCase() !== pe))){
+      toast("Nur die verantwortliche Planer*in kann das Angebot reaktivieren."); return;
+    }
+    pushUndo(); p.archived = false;
+    logAction("Angebot reaktiviert");
+    save(); renderAll(); toast("Angebot reaktiviert – Bearbeitung wieder möglich.");
+    return;
+  }
+  if(!guardEdit()) return;
+  if(!(await ask(`Angebot «${p.name}» archivieren? Es bleibt sichtbar, kann aber nicht mehr bearbeitet werden.`))) return;
+  pushUndo(); p.archived = true;
+  logAction("Angebot archiviert");
+  save(); renderAll(); toast("Angebot archiviert.");
+});
+$("#btn-project-copy").addEventListener("click", async () => {
+  if(ssoConfigured() && !msalAccount){ toast("Bitte zuerst mit Microsoft anmelden."); return; }
+  const p = activeProject();
+  const name = await askText("Name des neuen Angebots (Kopie):", p.name + " – neues Semester");
+  if(!name || !name.trim()) return;
+  pushUndo();
+  const d = p.data;
+  const np = newProject(name.trim(), {
+    students: JSON.parse(JSON.stringify(d.students)),
+    staff: JSON.parse(JSON.stringify(d.staff)),
+    req: JSON.parse(JSON.stringify(d.req)),
+    lens: JSON.parse(JSON.stringify(d.lens || {}))
+  });
+  np.planner = msalAccount
+    ? {name: msalAccount.name || "", email: msalAccount.username || ""}
+    : JSON.parse(JSON.stringify(p.planner || {name:"", email:""}));
+  ROOT.projects.push(np);
+  ROOT.active = np.id;
+  S = np.data;
+  logAction(`Als Kopie von «${p.name}» erstellt (Personen und Zuordnungen übernommen)`);
+  save(); renderAll(); showTab("daten");
+  toast("Kopie erstellt – Personen und Zuordnungen übernommen, Termine und Status sind leer.");
+});
+
+/* ---------- Synchronisation über die zentrale Datenbank (PHP-API) ---------- */
+const SYNC_LS = "gp-sync-cfg";
+let SYNC = {url:"", key:""};
+try{ SYNC = {...SYNC, ...(JSON.parse(localStorage.getItem(SYNC_LS)) || {})}; }catch(e){}
+const syncConfigured = () => !!(SYNC.url && SYNC.key);
+let syncState = {msg:"", cls:"", busy:false};
+function renderSyncStatus(){
+  const el = $("#sync-status"); if(!el) return;
+  el.hidden = !syncConfigured();
+  el.textContent = syncState.msg || "Sync bereit";
+  el.className = "pb-sync " + (syncState.cls || "");
+}
+async function apiCall(action, body){
+  const res = await fetch(SYNC.url.replace(/\/+$/, "") + "?action=" + action, {
+    method: body ? "POST" : "GET",
+    headers: {"Content-Type":"application/json", "X-Api-Key": SYNC.key},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+let syncTimer = null;
+function scheduleSync(){
+  if(!syncConfigured()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncNow(true), 3000);
+}
+async function syncNow(silent){
+  if(!syncConfigured() || syncState.busy) return;
+  syncState = {msg:"synchronisiere…", cls:"", busy:true}; renderSyncStatus();
+  try{
+    const remote = await apiCall("pull");
+    const remoteById = {};
+    (remote.projects || []).forEach(r => remoteById[r.id] = r);
+    for(const r of Object.values(remoteById)){
+      const local = ROOT.projects.find(p => p.id === r.id);
+      if(!local){
+        const obj = JSON.parse(r.json);
+        ROOT.projects.push({id:r.id, name:obj.name, planner:obj.planner || {name:"", email:""},
+          archived:!!obj.archived, data:{...dataDefaults(), ...obj.data}, version:r.version, dirty:false});
+      }else if(!local.dirty && r.version > (local.version || 0)){
+        const obj = JSON.parse(r.json);
+        local.name = obj.name;
+        local.planner = obj.planner || local.planner;
+        local.archived = !!obj.archived;
+        local.data = {...dataDefaults(), ...obj.data};
+        local.version = r.version;
+        if(local.id === ROOT.active) S = local.data;
+      }
+    }
+    for(const p of ROOT.projects.filter(p => p.dirty)){
+      const r = remoteById[p.id];
+      if(r && r.version > (p.version || 0)){
+        const keep = await ask(`Konflikt bei «${p.name}»: Auf dem Server liegt eine neuere Version (zuletzt von ${r.updated_by || "unbekannt"}). Deine lokale Version hochladen? «Abbrechen» übernimmt die Server-Version.`);
+        if(!keep){
+          const obj = JSON.parse(r.json);
+          p.name = obj.name; p.planner = obj.planner || p.planner; p.archived = !!obj.archived;
+          p.data = {...dataDefaults(), ...obj.data};
+          p.version = r.version; p.dirty = false;
+          if(p.id === ROOT.active) S = p.data;
+          continue;
+        }
+        p.version = r.version;
+      }
+      const resp = await apiCall("push", {
+        id: p.id, name: p.name, baseVersion: p.version || 0,
+        json: JSON.stringify({name:p.name, planner:p.planner, archived:!!p.archived, data:p.data}),
+        updated_by: msalAccount ? (msalAccount.name || msalAccount.username) : "lokal"
+      });
+      if(!resp.conflict){ p.version = resp.version; p.dirty = false; }
+    }
+    save(false); renderAll();
+    syncState = {msg:"Zuletzt synchronisiert: " + new Date().toLocaleTimeString("de-CH", {hour:"2-digit", minute:"2-digit"}), cls:"ok", busy:false};
+  }catch(e){
+    syncState = {msg:"Sync-Fehler – Daten bleiben lokal gespeichert", cls:"err", busy:false};
+    if(!silent) toast("Synchronisation fehlgeschlagen: " + (e.message || e));
+  }
+  renderSyncStatus();
+}
+$("#btn-sync-settings").addEventListener("click", async () => {
+  const url = await askText("Adresse der Sync-API (z. B. https://euredomain.ch/gespraechsplaner/api.php) – leer lassen zum Abschalten:", SYNC.url);
+  if(url === null) return;
+  if(!url.trim()){
+    SYNC = {url:"", key:""};
+    try{ localStorage.setItem(SYNC_LS, JSON.stringify(SYNC)); }catch(e){}
+    renderSyncStatus(); toast("Synchronisation abgeschaltet – das Tool arbeitet rein lokal.");
+    return;
+  }
+  const key = await askText("Sync-Schlüssel (steht in der config.php auf dem Server):", SYNC.key);
+  if(key === null) return;
+  SYNC = {url:url.trim(), key:key.trim()};
+  try{ localStorage.setItem(SYNC_LS, JSON.stringify(SYNC)); }catch(e){}
+  renderSyncStatus();
+  toast("Sync eingerichtet – synchronisiere jetzt…");
+  syncNow(false);
+});
+
 initMsal();
 renderAll();
+renderAbsWho();
 showTab("daten");
+if(syncConfigured()) syncNow(true);
 </script>
 
 
