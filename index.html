@@ -375,7 +375,6 @@ table.result .staffs{color:var(--muted); font-size:.84rem}
   border-radius:999px; padding:3px 12px; max-width:220px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.fontsize{display:flex; gap:4px}
 select.lens{font-size:.8rem; padding:2px 6px; border-radius:6px}
 .diag .item.tip{border-color:var(--accent); background:var(--accent-soft); color:var(--accent)}
 select.orgstatus{font-size:.82rem; padding:3px 6px; border-radius:6px}
@@ -434,10 +433,6 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
   <input type="file" id="file-import" accept="application/json" hidden>
   <button class="btn small" id="btn-print">Drucken</button>
   <button class="btn small" id="btn-undo" title="Letzte Änderung rückgängig machen">Rückgängig</button>
-  <div class="fontsize" role="group" aria-label="Schriftgrösse anpassen">
-    <button class="btn small" id="btn-font-minus" aria-label="Schrift verkleinern">A−</button>
-    <button class="btn small" id="btn-font-plus" aria-label="Schrift vergrössern">A+</button>
-  </div>
   <button class="btn small" id="btn-login" hidden>Mit Microsoft anmelden</button>
   <button class="btn small" id="btn-logout" hidden>Abmelden</button>
   <span class="account" id="account-chip" hidden></span>
@@ -460,8 +455,8 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
 
 <nav class="tabs" aria-label="Arbeitsschritte">
   <button data-tab="daten" class="active"><span class="step">1</span>Stammdaten</button>
-  <button data-tab="matrix"><span class="step">2</span>Zuordnung (R)</button>
-  <button data-tab="verfueg"><span class="step">3</span>Verfügbarkeit (A)</button>
+  <button data-tab="matrix"><span class="step">2</span>Zuordnung</button>
+  <button data-tab="verfueg"><span class="step">3</span>Verfügbarkeit</button>
   <button data-tab="plan"><span class="step">4</span>Planung</button>
 </nav>
 
@@ -608,7 +603,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     </div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner · Version 2.6 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner · Version 2.7 vom 04.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -1970,18 +1965,6 @@ $("#btn-project-del").addEventListener("click", async () => {
 
 /* ---------- Rückgängig, Schriftgrösse, Anmeldung ---------- */
 $("#btn-undo").addEventListener("click", () => { if(guardEdit()) doUndo(); });
-const FONT_KEY = "gp-fontscale";
-let fontScale = 1;
-try{ fontScale = Math.min(1.45, Math.max(0.85, +(localStorage.getItem(FONT_KEY)) || 1)); }catch(e){}
-function applyFont(){
-  document.documentElement.style.fontSize = (fontScale * 100) + "%";
-  document.body.style.fontSize = (15 * fontScale) + "px";
-  try{ localStorage.setItem(FONT_KEY, String(fontScale)); }catch(e){}
-}
-$("#btn-font-minus").addEventListener("click", () => { fontScale = Math.max(0.85, +(fontScale - 0.1).toFixed(2)); applyFont(); });
-$("#btn-font-plus").addEventListener("click", () => { fontScale = Math.min(1.45, +(fontScale + 0.1).toFixed(2)); applyFont(); });
-applyFont();
-
 $("#btn-login").addEventListener("click", () => {
   if(msalApp) msalApp.loginRedirect({scopes:["openid","profile","email"]});
 });
