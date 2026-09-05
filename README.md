@@ -148,6 +148,49 @@ Hinweis: Bei sehr vielen Gruppenmitgliedschaften (>200) liefert Microsoft
 die Gruppen nicht mehr im Token («groups overage») – dann für die App-Rolle
 eine dedizierte kleine Gruppe verwenden.
 
+## Version 3.0: Outlook-Einladungen, Exchange-Räume, Eltern-Terminwahl u.&nbsp;a.
+
+- **Echte Outlook-Einladungen (Microsoft Graph)**: «Outlook-Einladungen
+  senden» in der Planung erstellt bzw. aktualisiert die Gespräche als echte
+  Kalendertermine im Konto der angemeldeten Planer*in und lädt alle
+  beteiligten Mitarbeiter*innen per E-Mail ein (Absagen bei entfallenen
+  Terminen inklusive). Dazu braucht jede Mitarbeiter*in eine E-Mail-Adresse
+  (Stammdaten → ✉-Knopf). Erneutes Klicken sendet nur Änderungen.
+- **Räume, auch aus Exchange**: Räume lassen sich in den Stammdaten manuell
+  erfassen oder mit «Aus Outlook/Exchange laden» direkt aus dem
+  Microsoft-365-Tenant übernehmen. Zuteilung pro Gespräch in der Planung;
+  Doppelbelegungen werden gemeldet. Exchange-Räume (mit E-Mail-Adresse)
+  werden bei Outlook-Einladungen als Ressource mitgebucht, Exchange
+  bestätigt oder lehnt automatisch ab.
+- **Eltern-Terminwahl per Link**: Der 🔗-Knopf in der Planungstabelle
+  erzeugt pro Schüler*in einen Link mit allen aktuell freien Zeitfenstern
+  (alle benötigten Mitarbeiter*innen verfügbar und nicht anderweitig
+  verplant). Die Eltern wählen ohne Anmeldung einen Termin; er wird
+  serverseitig auf Kollisionen geprüft, fixiert und als «bestätigt»
+  markiert. Benötigt die eingerichtete Sync-API (Version ≥ 3.0 auf dem
+  Server).
+- **Umplanen per Ziehen/Antippen**: In den Zeitfenster-Karten lässt sich
+  ein Gespräch mit der Maus in ein anderes Fenster ziehen (oder antippen
+  und dann das Ziel antippen). Konflikte werden vor dem Fixieren gemeldet.
+- **Plan-Varianten**: Der Planer berechnet bis zu drei gleichwertige
+  Lösungen und bewertet sie nach Kompaktheit (Leerlauf-Fenster und
+  Einsatztage pro Mitarbeiter*in) – umschaltbar per Klick.
+- **Auslastung**: Tabelle pro Mitarbeiter*in mit Gesprächen, belegten
+  Zeitfenstern, Einsatztagen und Leerlauf.
+- **Präsenz & schnellere Übernahme**: Bei eingerichteter Sync-API zeigt die
+  Leiste, wer dasselbe Angebot gerade offen hat; fremde Änderungen werden
+  auch ohne eigene Bearbeitung regelmässig nachgeladen.
+- **PDF-Export**: Gestalteter Gesprächsplan im Sonnenberg-Design als PDF.
+- Der CSV-/Excel-/PDF-Export enthält neu auch die Spalte «Raum».
+
+**Einrichtung durch die IT (einmalig, für Graph-Funktionen)**: In der
+App-Registrierung unter **API permissions** die delegierten
+Microsoft-Graph-Berechtigungen **Calendars.ReadWrite** (Einladungen) und
+**Place.Read.All** (Raumliste; erfordert Admin-Zustimmung) hinzufügen und
+die Admin-Zustimmung erteilen. Ohne diese Rechte funktioniert alles Übrige
+weiterhin – als Fallback stehen ICS-Dateien und manuell erfasste Räume zur
+Verfügung.
+
 ## CI/CD
 
 Bei jedem Push läuft die GitHub-Actions-Pipeline (`.github/workflows/ci-cd.yml`):

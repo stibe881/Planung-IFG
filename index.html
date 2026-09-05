@@ -415,6 +415,48 @@ body.readonly .edit-only{display:none !important}
   .slotgrid{grid-template-columns:1fr}
 }
 input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color:var(--muted)}
+
+/* Umplanen per Ziehen (Desktop) bzw. Antippen (Touch) */
+.slotcard li[draggable=true]{cursor:grab}
+.slotcard li.moving{outline:2px solid var(--accent); outline-offset:-2px; background:var(--accent-soft); border-radius:8px}
+.slotcard.droptarget{outline:2px dashed var(--accent); outline-offset:-2px}
+.movehint{font-size:.82rem; color:var(--muted); margin:14px 2px 0}
+/* Plan-Varianten */
+#variants{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px}
+#variants button{
+  appearance:none; font:inherit; font-size:.84rem; font-weight:600; cursor:pointer;
+  border:1px solid var(--line-strong); background:var(--surface); color:var(--muted);
+  border-radius:999px; padding:5px 14px;
+}
+#variants button.on{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+#variants .vhint{font-size:.8rem; color:var(--muted); align-self:center}
+/* Auslastung */
+#workload table{border-collapse:collapse; width:100%; font-size:.88rem; margin-top:10px}
+#workload th, #workload td{border-bottom:1px solid var(--line); padding:6px 10px; text-align:left; vertical-align:middle}
+#workload thead th{font-size:.76rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted)}
+#workload .wbar{display:inline-block; height:9px; border-radius:5px; background:var(--accent); vertical-align:middle; min-width:2px}
+#workload td.mono{white-space:nowrap}
+/* Eltern-Terminwahl */
+.booking{position:fixed; inset:0; z-index:90; overflow:auto; background:var(--bg); padding:24px}
+.booking[hidden]{display:none}
+.booking-box{
+  background:var(--surface); border:1px solid var(--line); border-radius:16px;
+  box-shadow:var(--shadow); padding:30px 32px; max-width:520px; margin:4vh auto;
+  display:flex; flex-direction:column; gap:10px;
+}
+.booking-box h2{font-family:"Poppins","Instrument Sans",sans-serif; color:var(--accent); margin:0}
+.booking-box .offer{
+  appearance:none; font:inherit; font-weight:600; cursor:pointer; text-align:left;
+  border:1px solid var(--line-strong); border-radius:10px; padding:12px 16px;
+  background:var(--surface); color:var(--ink);
+  font-family:"Spline Sans Mono",monospace;
+}
+.booking-box .offer:hover{border-color:var(--accent); color:var(--accent)}
+.booking-box .ok{border:1px solid var(--ok); background:var(--ok-soft); color:var(--ok-ink); border-radius:10px; padding:12px 16px; font-weight:600}
+.booking-box .err{border:1px solid var(--req); background:var(--req-soft); color:var(--req-ink); border-radius:10px; padding:10px 14px; font-size:.9rem}
+/* Präsenz anderer Planer*innen */
+.pb-presence{font-size:.82rem; color:var(--ok-ink); font-weight:600}
+select.roomsel{font-size:.82rem; padding:3px 6px; border-radius:6px; max-width:140px}
 </style>
 </head>
 <body>
@@ -448,6 +490,7 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
   <button class="btn small danger" id="btn-project-del" title="Dieses Angebot löschen">Löschen</button>
   <button class="btn small" id="btn-log" title="Änderungsprotokoll anzeigen">Protokoll</button>
   <span class="pb-planner" id="pb-planner"></span>
+  <span class="pb-presence" id="pb-presence" hidden></span>
   <span class="pb-sync" id="sync-status" hidden></span>
   <button class="btn small" id="btn-sync-settings" title="Synchronisation mit der zentralen Datenbank einrichten">Sync…</button>
   <span class="pb-lock" id="pb-lock" hidden>Nur Ansicht – Bearbeitung durch die verantwortliche Planer*in</span>
@@ -527,6 +570,18 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
           <button class="btn small" id="btn-series">Serie hinzufügen</button>
         </fieldset>
       </div>
+      <div class="card">
+        <h3>Räume <span class="count" id="cnt-rooms"></span></h3>
+        <p class="cardhint">Optional: Räume für die Gespräche. Zuteilung pro Gespräch in der Planung; das Tool warnt bei Doppelbelegung. Mit Microsoft-Anmeldung lassen sich die Räume direkt aus Outlook/Exchange übernehmen – mit E-Mail-Adresse wird der Raum bei Outlook-Einladungen gleich mitgebucht.</p>
+        <ul class="plain" id="list-rooms"></ul>
+        <div class="addrow">
+          <input type="text" id="inp-room" placeholder="Raumname" aria-label="Neuer Raum">
+          <button class="btn" id="btn-add-room">Hinzufügen</button>
+        </div>
+        <div class="addrow" style="margin-top:8px">
+          <button class="btn small" id="btn-rooms-graph" hidden title="Liest die Raumliste eures Microsoft-365-Tenants (benötigt die Berechtigung Place.Read.All)">Aus Outlook/Exchange laden</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -577,6 +632,8 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
       <button class="btn" id="btn-export-csv">CSV</button>
       <button class="btn" id="btn-export-xlsx">Excel (.xlsx)</button>
       <button class="btn" id="btn-export-ics">Outlook (.ics)</button>
+      <button class="btn" id="btn-export-pdf">PDF</button>
+      <button class="btn" id="btn-graph-invite" hidden title="Erstellt bzw. aktualisiert echte Outlook-Termine mit Einladungen an alle beteiligten Mitarbeiter*innen (benötigt die Berechtigung Calendars.ReadWrite)">Outlook-Einladungen senden</button>
       <select id="plan-filter" aria-label="Tabelle filtern">
         <option value="alle">alle anzeigen</option>
         <option value="ohne">nur ohne Termin</option>
@@ -586,9 +643,11 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
     </div>
     <div class="diag" id="diag"></div>
     <div class="diag" id="suggestions"></div>
+    <div id="variants" class="noprint"></div>
     <div class="summary" id="summary"></div>
     <div id="progress" class="noprint"></div>
     <div id="result-table"></div>
+    <p class="movehint noprint" id="move-hint" hidden>Umplanen: Gespräch in den Karten unten mit der Maus in ein anderes Zeitfenster ziehen – oder antippen und dann das Ziel-Zeitfenster antippen. Der Termin wird dabei fixiert.</p>
     <div class="slotgrid" id="slot-cards"></div>
 
     <div class="card" id="personal-card" style="margin-top:22px">
@@ -601,9 +660,15 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
       </div>
       <div id="personal-plan"></div>
     </div>
+
+    <div class="card noprint" id="workload-card" style="margin-top:22px">
+      <h3>Auslastung der Mitarbeiter*innen</h3>
+      <p class="cardhint">Wie viele Gespräche und Zeitfenster pro Person geplant sind – und an wie vielen Tagen mit wie viel Leerlauf dazwischen.</p>
+      <div id="workload"></div>
+    </div>
   </section>
 
-  <div class="version noprint">Gesprächsplaner · Version 2.7 vom 04.09.2026 · Sonnenberg Corporate Design</div>
+  <div class="version noprint">Gesprächsplaner · Version 3.0 vom 05.09.2026 · Sonnenberg Corporate Design</div>
 </main>
 
 <div class="toolbar-msg" id="toast" role="status"></div>
@@ -644,6 +709,14 @@ input[type=date]:not(:focus):invalid, input[type=time]:not(:focus):invalid{color
       <button class="btn" id="settings-cancel">Abbrechen</button>
       <button class="btn primary" id="settings-save">Speichern</button>
     </div>
+  </div>
+</div>
+
+<div class="booking" id="booking-view" hidden>
+  <div class="booking-box">
+    <img class="gate-logo" alt="Sonnenberg" id="booking-logo" style="align-self:center">
+    <h2>Terminwahl Schüler*innen-Gespräch</h2>
+    <div id="booking-body"><p class="cardhint">Lade Termine…</p></div>
   </div>
 </div>
 
@@ -707,7 +780,8 @@ function sampleData(){
 
 function dataDefaults(){
   return {students:[], staff:[], slots:[], req:{}, unavail:{}, stuUnavail:{}, fixed:{},
-          status:{}, notes:{}, lens:{}, log:[], plan:null, sample:false};
+          status:{}, notes:{}, lens:{}, log:[], plan:null, sample:false,
+          rooms:[], roomOf:{}, msEvents:{}, bookings:{}};
 }
 function newProject(name, data){
   return {id:newId("pj"), name, planner:{name:"", email:""}, data:{...dataDefaults(), ...(data || {})}};
@@ -830,6 +904,10 @@ function updateAuthUi(){
   loginBtn.hidden = !ssoConfigured() || !!msalAccount;
   logoutBtn.hidden = !msalAccount;
   chip.hidden = !msalAccount;
+  const inviteBtn = $("#btn-graph-invite");
+  if(inviteBtn) inviteBtn.hidden = !(ssoConfigured() && msalAccount);
+  const roomsBtn = $("#btn-rooms-graph");
+  if(roomsBtn) roomsBtn.hidden = !(ssoConfigured() && msalAccount);
   if(msalAccount) chip.textContent = msalAccount.name || msalAccount.username;
   document.body.classList.toggle("readonly", !canEdit());
   const lock = $("#pb-lock");
@@ -929,7 +1007,64 @@ function toast(msg){
 }
 
 /* ---------- Planungsalgorithmus ---------- */
+// Kompaktheit einer Lösung: Leerlauf-Fenster zwischen Gesprächen derselben
+// Person am selben Tag plus Zahl der Einsatztage – je kleiner, desto besser.
+function planScore(assign){
+  const slotIdx = {}; S.slots.forEach((sl, i) => slotIdx[sl.id] = i);
+  let gaps = 0, days = 0;
+  for(const m of S.staff){
+    const perDay = {}; // date -> [Slot-Indizes]
+    for(const st of S.students){
+      if(!(S.req[st.id]||{})[m.id] || !assign[st.id]) continue;
+      for(const slId of (assignedSeq(st.id, assign[st.id]) || [assign[st.id]])){
+        const sl = slotById(slId);
+        if(sl) (perDay[sl.date] = perDay[sl.date] || []).push(slotIdx[slId]);
+      }
+    }
+    for(const list of Object.values(perDay)){
+      const u = [...new Set(list)].sort((a,b) => a-b);
+      gaps += (u[u.length-1] - u[0] + 1) - u.length;
+      days++;
+    }
+  }
+  return {gaps, days, val: gaps*2 + days};
+}
+
 function solvePlan(){
+  const runs = [null, 1, 2, 3]; // 1 deterministischer + 3 gemischte Läufe
+  const variants = [];
+  let warnings = [];
+  for(const seed of runs){
+    const r = computePlan(seed);
+    if(seed === null) warnings = r.warnings;
+    const sig = S.students.map(st => r.assign[st.id] || "-").join("|");
+    if(variants.some(v => v.sig === sig)) continue;
+    const placed = S.students.filter(st => r.assign[st.id]).length;
+    variants.push({sig, assign:r.assign, placed, score:planScore(r.assign)});
+  }
+  variants.sort((a,b) => b.placed - a.placed || a.score.val - b.score.val);
+  variants.length = Math.min(variants.length, 3);
+  S.plan = {assignments: {...variants[0].assign}, ts:Date.now(), warnings,
+            variants: variants.map(v => ({assign:v.assign, placed:v.placed, gaps:v.score.gaps, days:v.score.days})),
+            variantIdx: 0};
+  save();
+}
+
+// Einfacher deterministischer Pseudozufall, damit die Misch-Läufe reproduzierbar sind
+function makeRand(seed){
+  let s = seed * 2654435761 % 2147483647;
+  return () => (s = s * 16807 % 2147483647) / 2147483647;
+}
+function computePlan(seed){
+  const rand = seed === null ? null : makeRand(seed);
+  const shuffle = arr => {
+    if(!rand) return arr;
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(rand() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
   const slotIds = S.slots.map(sl => sl.id);
   const busy = {};                       // slotId -> Set(staffId)
   slotIds.forEach(id => busy[id] = new Set());
@@ -972,13 +1107,13 @@ function solvePlan(){
   const withReq = [], noReq = [];
   for(const st of open){
     const need = reqStaffIds(st.id);
-    const entry = {id:st.id, need, seqs:candidateSeqs(st.id)};
+    const entry = {id:st.id, need, seqs:shuffle(candidateSeqs(st.id))};
     (need.length ? withReq : noReq).push(entry);
   }
   withReq.sort((a,b) => a.seqs.length - b.seqs.length || b.need.length - a.need.length);
 
   let best = {}, bestCount = -1, nodes = 0;
-  const NODE_CAP = 400000;
+  const NODE_CAP = seed === null ? 400000 : 120000;
   const cur = {};
   (function dfs(i, placed){
     if(nodes++ > NODE_CAP) return;
@@ -1024,9 +1159,8 @@ function solvePlan(){
     bestSeq.forEach(id => countPerSlot[id]++);
   }
 
-  if(nodes > NODE_CAP) warnings.push("Sehr viele Kombinationen – es wurde die beste innerhalb des Rechenlimits gefundene Lösung übernommen.");
-  S.plan = {assignments:assign, ts:Date.now(), warnings};
-  save();
+  if(nodes > NODE_CAP && seed === null) warnings.push("Sehr viele Kombinationen – es wurde die beste innerhalb des Rechenlimits gefundene Lösung übernommen.");
+  return {assign, warnings};
 }
 
 function unplacedReason(studentId){
@@ -1062,9 +1196,17 @@ function renderLists(){
   $("#list-staff").innerHTML = S.staff.map(m => {
     const n = S.students.filter(st => (S.req[st.id]||{})[m.id]).length;
     return `<li><span class="nm">${esc(m.name)}</span><span class="meta">${n} Gespräche</span>
+      <button class="iconbtn edit" data-act="mail-staff" data-id="${m.id}" title="${m.email ? "E-Mail: " + esc(m.email) : "E-Mail-Adresse für Outlook-Einladungen erfassen"}">${m.email ? "✉" : "✉<span style='opacity:.35'>?</span>"}</button>
       <button class="iconbtn edit" data-act="rename-staff" data-id="${m.id}" title="Umbenennen">${ICONS.edit}</button>
       <button class="iconbtn" data-act="del-staff" data-id="${m.id}" title="Entfernen">${ICONS.x}</button></li>`;
   }).join("") || `<li><span class="nm meta">Noch niemand erfasst.</span></li>`;
+
+  $("#cnt-rooms").textContent = (S.rooms || []).length || "";
+  $("#list-rooms").innerHTML = (S.rooms || []).map(r =>
+    `<li><span class="nm">${esc(r.name)}</span>${r.email ? `<span class="meta" title="${esc(r.email)}">Exchange</span>` : ""}
+      <button class="iconbtn" data-act="del-room" data-id="${r.id}" title="Entfernen">${ICONS.x}</button></li>`
+  ).join("") || `<li><span class="nm meta">Noch keine Räume (optional).</span></li>`;
+  $("#btn-rooms-graph").hidden = !(ssoConfigured() && msalAccount);
 
   $("#list-slots").innerHTML = S.slots.map(sl =>
     `<li><span class="nm">${esc(slotLabel(sl))}</span>
@@ -1168,7 +1310,30 @@ function renderDiagnostics(){
   }
   for(const w of (S.plan?.warnings || [])) items.push({cls:"warn", txt:w});
   for(const c of crossProjectConflicts()) items.push({cls:"err", txt:c});
+  for(const c of roomConflicts()) items.push({cls:"err", txt:c});
   box.innerHTML = items.map(i => `<div class="item ${i.cls==="err"?"err":""}">${esc(i.txt)}</div>`).join("");
+}
+
+// Doppelbelegung eines Raums: zwei Gespräche mit demselben Raum in überschneidenden Fenstern
+function roomConflicts(){
+  if(!S.plan || !(S.rooms||[]).length) return [];
+  const out = [];
+  const byRoom = {};
+  for(const st of S.students){
+    const rid = S.roomOf[st.id];
+    if(!rid || !S.plan.assignments[st.id]) continue;
+    const seq = assignedSeq(st.id, S.plan.assignments[st.id]) || [S.plan.assignments[st.id]];
+    (byRoom[rid] = byRoom[rid] || []).push({st, seq});
+  }
+  for(const [rid, list] of Object.entries(byRoom)){
+    const room = (S.rooms||[]).find(r => r.id === rid);
+    for(let i = 0; i < list.length; i++)
+      for(let j = i + 1; j < list.length; j++){
+        const shared = list[i].seq.find(id => list[j].seq.includes(id));
+        if(shared) out.push(`Raum «${(room||{}).name || "?"}» ist am ${slotLabel(slotById(shared))} doppelt belegt (Gespräche ${list[i].st.name} und ${list[j].st.name}).`);
+      }
+  }
+  return out.slice(0, 8);
 }
 
 // Doppelbelegungen derselben Person über verschiedene Angebote hinweg (Abgleich über den Namen)
@@ -1245,6 +1410,10 @@ function renderPlan(){
     tsEl.textContent = "";
     sumBox.innerHTML = "";
     cardsBox.innerHTML = "";
+    $("#variants").innerHTML = "";
+    $("#progress").innerHTML = "";
+    $("#move-hint").hidden = true;
+    renderWorkload();
     tableBox.innerHTML = `<p class="hint">Noch kein Plan berechnet. Prüfe Zuordnung und Verfügbarkeit und klicke dann auf «Termine planen».</p>`;
     return;
   }
@@ -1272,8 +1441,9 @@ function renderPlan(){
       `<option value="${sl.id}" ${A[st.id]===sl.id?"selected":""}>${esc(slotLabel(sl))}${cands.has(sl.id)?"":" (Konflikt)"}</option>`
     ).join("");
   };
+  const hasRooms = (S.rooms || []).length > 0;
   let h = `<table class="result"><thead><tr>
-    <th>Schüler*in</th><th>Termin</th><th>Status</th><th>Organisation</th><th>Mitarbeiter*innen</th></tr></thead><tbody>`;
+    <th>Schüler*in</th><th>Termin</th><th>Status</th><th>Organisation</th>${hasRooms ? "<th>Raum</th>" : ""}<th>Mitarbeiter*innen</th></tr></thead><tbody>`;
   for(const st of [...S.students].sort(byName)){
     const slId = A[st.id];
     if(planFilter === "ohne" && slId) continue;
@@ -1302,12 +1472,18 @@ function renderPlan(){
       <td><select class="orgstatus" data-act="org" data-st="${st.id}" aria-label="Organisationsstatus für ${esc(st.name)}">
         ${ORG_STATUS.map(([v,l]) => `<option value="${v}" ${org===v?"selected":""}>${l}</option>`).join("")}
       </select>
-      <button class="iconbtn edit" data-act="note" data-st="${st.id}" title="${note ? "Notiz: " + esc(note) : "Notiz erfassen"}">${ICONS.edit}</button>${note ? `<span class="notedot" title="${esc(note)}" aria-label="Notiz vorhanden">●</span>` : ""}</td>
+      <button class="iconbtn edit" data-act="note" data-st="${st.id}" title="${note ? "Notiz: " + esc(note) : "Notiz erfassen"}">${ICONS.edit}</button>${note ? `<span class="notedot" title="${esc(note)}" aria-label="Notiz vorhanden">●</span>` : ""}
+      ${syncConfigured() ? `<button class="iconbtn edit" data-act="booking" data-st="${st.id}" title="${S.bookings[st.id] ? "Eltern-Terminwahl-Link anzeigen" : "Eltern-Terminwahl-Link erzeugen"}">🔗</button>` : ""}</td>
+      ${hasRooms ? `<td><select class="roomsel" data-act="room" data-st="${st.id}" aria-label="Raum für ${esc(st.name)}">
+        <option value="">– kein Raum –</option>
+        ${(S.rooms||[]).map(r => `<option value="${r.id}" ${S.roomOf[st.id]===r.id?"selected":""}>${esc(r.name)}</option>`).join("")}
+      </select></td>` : ""}
       <td class="staffs">${esc(staffNames.join(", ")) || "<em>keine zugeordnet</em>"}</td></tr>`;
   }
   h += `</tbody></table>`;
   tableBox.innerHTML = h;
 
+  $("#move-hint").hidden = !(canEdit() && S.slots.length > 1 && placed > 0);
   cardsBox.innerHTML = S.slots.map(sl => {
     const convs = S.students
       .map(st => { const t = A[st.id] ? planTimes(st.id) : null; return t && t.seq.includes(sl.id) ? {st, t} : null; })
@@ -1316,13 +1492,61 @@ function renderPlan(){
     const items = convs.map(({st, t}) => {
       const names = reqStaffIds(st.id).map(mid => staffName(mid));
       const part = t.seq.length > 1 ? ` <span class="cnt">(Teil ${t.seq.indexOf(sl.id)+1}/${t.seq.length})</span>` : "";
-      return `<li><div class="who">${esc(st.name)}${S.fixed[st.id] ? " "+ICONS.pin : ""}${part}</div>
-        <div class="with">${esc(names.join(", ")) || "ohne Mitarbeiter*innen"}</div></li>`;
+      const room = S.roomOf[st.id] ? (S.rooms||[]).find(r => r.id === S.roomOf[st.id]) : null;
+      const canDrag = canEdit() && t.seq[0] === sl.id;
+      return `<li ${canDrag ? `draggable="true" data-move="${st.id}"` : ""}><div class="who">${esc(st.name)}${S.fixed[st.id] ? " "+ICONS.pin : ""}${part}</div>
+        <div class="with">${esc(names.join(", ")) || "ohne Mitarbeiter*innen"}${room ? " · " + esc(room.name) : ""}</div></li>`;
     }).join("");
-    return `<div class="slotcard"><header><span class="when mono">${esc(slotLabel(sl))}</span>
+    return `<div class="slotcard" data-slot="${sl.id}"><header><span class="when mono">${esc(slotLabel(sl))}</span>
       <span class="cnt">${convs.length} Gespräch${convs.length===1?"":"e"}</span></header>
       <ul>${items || `<li class="empty">Keine Gespräche in diesem Fenster.</li>`}</ul></div>`;
   }).join("");
+  renderVariants();
+  renderWorkload();
+}
+
+/* ---------- Plan-Varianten ---------- */
+function renderVariants(){
+  const box = $("#variants");
+  const vs = S.plan && S.plan.variants;
+  if(!vs || vs.length < 2){ box.innerHTML = ""; return; }
+  box.innerHTML = `<span class="vhint">Varianten:</span>` + vs.map((v, i) =>
+    `<button data-act="variant" data-i="${i}" class="${(S.plan.variantIdx||0) === i ? "on" : ""}"
+      title="Kompaktheit: je weniger Leerlauf und Einsatztage, desto besser">
+      ${String.fromCharCode(65 + i)} · ${v.placed} geplant · ${v.gaps} Leerlauf · ${v.days} Einsatztage</button>`).join("");
+}
+
+/* ---------- Auslastung ---------- */
+function renderWorkload(){
+  const box = $("#workload");
+  if(!box) return;
+  if(!S.plan || !S.staff.length){ box.innerHTML = `<p class="cardhint">Noch kein Plan berechnet.</p>`; return; }
+  const rows = S.staff.map(m => {
+    const convs = S.students.filter(st => (S.req[st.id]||{})[m.id] && S.plan.assignments[st.id]);
+    const slotSet = new Set();
+    const perDay = {};
+    const slotIdx = {}; S.slots.forEach((sl, i) => slotIdx[sl.id] = i);
+    for(const st of convs){
+      for(const slId of (assignedSeq(st.id, S.plan.assignments[st.id]) || [])){
+        slotSet.add(slId);
+        const sl = slotById(slId);
+        if(sl) (perDay[sl.date] = perDay[sl.date] || []).push(slotIdx[slId]);
+      }
+    }
+    let gaps = 0;
+    for(const list of Object.values(perDay)){
+      const u = [...new Set(list)].sort((a,b) => a-b);
+      gaps += (u[u.length-1] - u[0] + 1) - u.length;
+    }
+    return {name:m.name, convs:convs.length, slots:slotSet.size, days:Object.keys(perDay).length, gaps};
+  }).filter(r => r.convs).sort((a,b) => b.slots - a.slots || a.name.localeCompare(b.name, "de"));
+  if(!rows.length){ box.innerHTML = `<p class="cardhint">Keine geplanten Gespräche.</p>`; return; }
+  const max = Math.max(...rows.map(r => r.slots), 1);
+  box.innerHTML = `<table><thead><tr><th>Mitarbeiter*in</th><th>Gespräche</th><th>Zeitfenster</th><th>Tage</th><th>Leerlauf</th><th></th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${esc(r.name)}</td><td class="mono">${r.convs}</td><td class="mono">${r.slots}</td>
+      <td class="mono">${r.days}</td><td class="mono"${r.gaps ? ' style="color:var(--warn-ink);font-weight:600"' : ""}>${r.gaps}</td>
+      <td style="width:30%"><span class="wbar" style="width:${(r.slots/max*100).toFixed(0)}%"></span></td></tr>`).join("") +
+    `</tbody></table>`;
 }
 
 function renderSuggestions(){
@@ -1489,6 +1713,8 @@ async function removeEntity(kind, id){
     S.students = S.students.filter(x => x.id !== id);
     delete S.req[id]; delete S.fixed[id]; delete S.stuUnavail[id];
     delete S.status[id]; delete S.notes[id]; delete S.lens[id];
+    delete S.roomOf[id]; delete S.bookings[id];
+    // S.msEvents[id] bleibt: beim nächsten «Outlook-Einladungen senden» wird der Termin abgesagt
     if(S.plan) delete S.plan.assignments[id];
   }else if(kind === "staff"){
     const m = S.staff.find(x => x.id === id); if(!m) return;
@@ -1550,6 +1776,38 @@ document.addEventListener("click", ev => {
   else if(act === "del-slot"){ removeEntity("slot", btn.dataset.id); }
   else if(act === "rename-student"){ renameEntity("student", btn.dataset.id); }
   else if(act === "rename-staff"){ renameEntity("staff", btn.dataset.id); }
+  else if(act === "mail-staff"){
+    const m = S.staff.find(x => x.id === btn.dataset.id); if(!m) return;
+    askText("Microsoft-E-Mail von " + m.name + " (für Outlook-Einladungen):", m.email || "").then(v => {
+      if(v === null) return;
+      pushUndo();
+      m.email = v.trim();
+      logAction("E-Mail-Adresse für «" + m.name + "» " + (m.email ? "hinterlegt" : "entfernt"));
+      save(); renderLists();
+    });
+  }
+  else if(act === "del-room"){
+    const r = (S.rooms||[]).find(x => x.id === btn.dataset.id); if(!r) return;
+    ask(`Raum «${r.name}» entfernen? Bestehende Zuteilungen werden gelöscht.`).then(okAns => {
+      if(!okAns) return;
+      pushUndo();
+      S.rooms = S.rooms.filter(x => x.id !== r.id);
+      for(const sid of Object.keys(S.roomOf)) if(S.roomOf[sid] === r.id) delete S.roomOf[sid];
+      logAction("Raum «" + r.name + "» entfernt");
+      save(); renderAll();
+    });
+  }
+  else if(act === "variant"){
+    const v = S.plan && S.plan.variants && S.plan.variants[+btn.dataset.i];
+    if(!v) return;
+    pushUndo();
+    S.plan.assignments = {...v.assign};
+    S.plan.variantIdx = +btn.dataset.i;
+    logAction("Plan-Variante " + String.fromCharCode(65 + (+btn.dataset.i)) + " übernommen");
+    save(); renderPlan();
+    toast("Variante " + String.fromCharCode(65 + (+btn.dataset.i)) + " übernommen.");
+  }
+  else if(act === "booking"){ bookingLink(btn.dataset.st); }
   else if(act === "note"){
     const sid = btn.dataset.st;
     const st = S.students.find(x => x.id === sid); if(!st) return;
@@ -1570,6 +1828,21 @@ document.addEventListener("change", ev => {
     pushUndo();
     S.lens[lenSel.dataset.id] = +lenSel.value;
     touchPlan(); save(); renderAll();
+    return;
+  }
+  const roomSel = ev.target.closest("select[data-act='room']");
+  if(roomSel){
+    if(!guardEdit()){ renderPlan(); return; }
+    pushUndo();
+    const stN = (S.students.find(x => x.id === roomSel.dataset.st) || {}).name || "?";
+    if(roomSel.value){
+      S.roomOf[roomSel.dataset.st] = roomSel.value;
+      logAction("Raum «" + (((S.rooms||[]).find(r => r.id === roomSel.value) || {}).name || "?") + "» für «" + stN + "» zugeteilt");
+    }else{
+      delete S.roomOf[roomSel.dataset.st];
+      logAction("Raumzuteilung für «" + stN + "» entfernt");
+    }
+    save(); renderPlan();
     return;
   }
   const orgSel = ev.target.closest("select[data-act='org']");
@@ -1743,12 +2016,13 @@ function planRows(){
   return [...S.students].sort(byName).map(st => {
     const t = planTimes(st.id);
     const names = reqStaffIds(st.id).map(staffName).join(", ");
+    const room = ((S.rooms || []).find(r => r.id === S.roomOf[st.id]) || {}).name || "";
     return t
-      ? [st.name, fmtDate(t.date), t.start, t.end, names, S.fixed[st.id] ? "fixiert" : "geplant", orgLabel(S.status[st.id] || "offen"), S.notes[st.id] || ""]
-      : [st.name, "", "", "", names, "kein Termin gefunden", orgLabel(S.status[st.id] || "offen"), S.notes[st.id] || ""];
+      ? [st.name, fmtDate(t.date), t.start, t.end, room, names, S.fixed[st.id] ? "fixiert" : "geplant", orgLabel(S.status[st.id] || "offen"), S.notes[st.id] || ""]
+      : [st.name, "", "", "", room, names, "kein Termin gefunden", orgLabel(S.status[st.id] || "offen"), S.notes[st.id] || ""];
   });
 }
-const PLAN_HEADER = ["Schüler*in","Datum","Von","Bis","Mitarbeiter*innen","Planung","Organisation","Notiz"];
+const PLAN_HEADER = ["Schüler*in","Datum","Von","Bis","Raum","Mitarbeiter*innen","Planung","Organisation","Notiz"];
 
 $("#btn-export-csv").addEventListener("click", () => {
   if(!S.plan){ toast("Bitte zuerst «Termine planen» ausführen."); return; }
@@ -1778,6 +2052,7 @@ function buildIcs(staffId){
       "DTSTART:" + dt + "T" + tm(t.start),
       "DTEND:" + dt + "T" + tm(t.end),
       "SUMMARY:" + icsEscape("Gespräch " + st.name + " (" + activeProject().name + ")"),
+      ...(S.roomOf[st.id] ? ["LOCATION:" + icsEscape((((S.rooms || []).find(r => r.id === S.roomOf[st.id]) || {}).name || ""))] : []),
       "DESCRIPTION:" + icsEscape("Teilnehmende: " + need.map(staffName).join(", ") + (S.notes[st.id] ? " – Notiz: " + S.notes[st.id] : "")),
       "END:VEVENT");
     count++;
@@ -1806,6 +2081,400 @@ $("#btn-personal-print").addEventListener("click", () => {
   window.print();
 });
 window.addEventListener("afterprint", () => document.body.classList.remove("print-personal"));
+
+/* ---------- Räume ---------- */
+const roomOfStudent = sid => (S.rooms||[]).find(r => r.id === S.roomOf[sid]) || null;
+$("#btn-add-room").addEventListener("click", () => {
+  if(!guardEdit()) return;
+  const inp = $("#inp-room");
+  const name = inp.value.trim();
+  if(!name){ inp.focus(); return; }
+  if((S.rooms||[]).some(r => r.name.toLowerCase() === name.toLowerCase())){ toast("Raum «" + name + "» ist bereits erfasst."); return; }
+  pushUndo();
+  (S.rooms = S.rooms || []).push({id:newId("rm"), name, email:""});
+  logAction("Raum «" + name + "» hinzugefügt");
+  inp.value = ""; inp.focus();
+  save(); renderAll();
+});
+$("#inp-room").addEventListener("keydown", e => { if(e.key === "Enter") $("#btn-add-room").click(); });
+
+/* ---------- Microsoft Graph (Outlook-Kalender & Exchange-Räume) ---------- */
+async function graphToken(scopes){
+  if(!msalApp || !msalAccount) throw new Error("Bitte zuerst mit Microsoft anmelden.");
+  const req = {scopes, account: msalApp.getActiveAccount() || msalAccount};
+  try{
+    return (await msalApp.acquireTokenSilent(req)).accessToken;
+  }catch(e){
+    return (await msalApp.acquireTokenPopup(req)).accessToken;
+  }
+}
+async function graphCall(method, path, token, body){
+  const res = await fetch("https://graph.microsoft.com/v1.0" + path, {
+    method,
+    headers:{Authorization:"Bearer " + token, "Content-Type":"application/json"},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(res.status === 202 || res.status === 204) return null;
+  const data = await res.json().catch(() => null);
+  if(!res.ok) throw new Error((data && data.error && data.error.message) || ("HTTP " + res.status));
+  return data;
+}
+$("#btn-rooms-graph").addEventListener("click", async () => {
+  if(!guardEdit()) return;
+  toast("Lade Raumliste aus Exchange…");
+  try{
+    const token = await graphToken(["Place.Read.All"]);
+    const data = await graphCall("GET", "/places/microsoft.graph.room?$top=200", token);
+    const found = (data && data.value || [])
+      .map(r => ({name:(r.displayName || "").trim(), email:(r.emailAddress || "").trim()}))
+      .filter(r => r.name);
+    if(!found.length){ toast("In eurem Microsoft-365-Tenant sind keine Räume hinterlegt."); return; }
+    pushUndo();
+    let added = 0;
+    S.rooms = S.rooms || [];
+    for(const r of found){
+      const ex = S.rooms.find(x =>
+        (x.email && r.email && x.email.toLowerCase() === r.email.toLowerCase()) ||
+        x.name.toLowerCase() === r.name.toLowerCase());
+      if(ex){ ex.name = r.name; if(r.email) ex.email = r.email; }
+      else { S.rooms.push({id:newId("rm"), name:r.name, email:r.email}); added++; }
+    }
+    logAction(found.length + " Räume aus Outlook/Exchange übernommen (" + added + " neu)");
+    save(); renderAll();
+    toast(found.length + " Räume aus Exchange geladen (" + added + " neu).");
+  }catch(e){
+    toast("Räume konnten nicht geladen werden: " + (e.message || e) + " – die IT muss der App-Registrierung die Graph-Berechtigung «Place.Read.All» erteilen (mit Admin-Zustimmung).");
+  }
+});
+
+/* ---------- Echte Outlook-Einladungen über Microsoft Graph ---------- */
+function eventPayload(st, t){
+  const need = reqStaffIds(st.id);
+  const room = roomOfStudent(st.id);
+  const attendees = need.map(mid => S.staff.find(m => m.id === mid))
+    .filter(m => m && m.email)
+    .map(m => ({emailAddress:{address:m.email, name:m.name}, type:"required"}));
+  if(room && room.email) attendees.push({emailAddress:{address:room.email, name:room.name}, type:"resource"});
+  return {
+    subject: "Gespräch " + st.name + " (" + activeProject().name + ")",
+    body:{contentType:"text", content:
+      "Teilnehmende: " + need.map(staffName).join(", ")
+      + (S.notes[st.id] ? "\nNotiz: " + S.notes[st.id] : "")
+      + "\n\nAutomatisch erstellt vom Gesprächsplaner Sonnenberg."},
+    start:{dateTime: t.date + "T" + t.start + ":00", timeZone:"W. Europe Standard Time"},
+    end:{dateTime: t.date + "T" + t.end + ":00", timeZone:"W. Europe Standard Time"},
+    location:{displayName: room ? room.name : "Sonnenberg"},
+    attendees
+  };
+}
+const eventSig = p => JSON.stringify([p.subject, p.start.dateTime, p.end.dateTime,
+  p.location.displayName, p.attendees.map(a => a.emailAddress.address).sort()]);
+$("#btn-graph-invite").addEventListener("click", async () => {
+  if(!guardEdit()) return;
+  if(!S.plan){ toast("Bitte zuerst «Termine planen» ausführen."); return; }
+  S.msEvents = S.msEvents || {};
+  const jobs = {create:[], update:[], cancel:[]};
+  const noMail = new Set();
+  for(const st of S.students){
+    const t = planTimes(st.id);
+    const ev = S.msEvents[st.id];
+    if(!t){ if(ev) jobs.cancel.push({sid:st.id}); continue; }
+    reqStaffIds(st.id).forEach(mid => { const m = S.staff.find(x => x.id === mid); if(m && !m.email) noMail.add(m.name); });
+    const payload = eventPayload(st, t);
+    const sig = eventSig(payload);
+    if(!ev) jobs.create.push({sid:st.id, payload, sig});
+    else if(ev.sig !== sig) jobs.update.push({sid:st.id, id:ev.id, payload, sig});
+  }
+  for(const sid of Object.keys(S.msEvents))
+    if(!S.students.some(st => st.id === sid)) jobs.cancel.push({sid});
+  const total = jobs.create.length + jobs.update.length + jobs.cancel.length;
+  if(!total){
+    toast(noMail.size
+      ? "Keine Termine zu senden. Hinweis: Bei " + noMail.size + " Mitarbeiter*innen fehlt die E-Mail-Adresse (Stammdaten, ✉-Knopf)."
+      : "Alle Outlook-Termine sind bereits aktuell.");
+    return;
+  }
+  let msg = "Über dein Outlook-Konto versenden: " + jobs.create.length + " neue Einladungen, "
+    + jobs.update.length + " Aktualisierungen, " + jobs.cancel.length + " Absagen. Fortfahren?";
+  if(noMail.size) msg += " Ohne E-Mail-Adresse (werden NICHT eingeladen): "
+    + [...noMail].slice(0, 5).join(", ") + (noMail.size > 5 ? " …" : "") + " – erfassbar in den Stammdaten über den ✉-Knopf.";
+  if(!(await ask(msg))) return;
+  toast("Sende Outlook-Einladungen…");
+  try{
+    const token = await graphToken(["Calendars.ReadWrite"]);
+    let done = 0, failed = 0, firstErr = "";
+    for(const j of jobs.cancel){
+      try{
+        await graphCall("POST", "/me/events/" + encodeURIComponent(S.msEvents[j.sid].id) + "/cancel",
+          token, {comment:"Der Gesprächstermin wurde aufgehoben."});
+      }catch(e){ /* Termin existiert evtl. nicht mehr */ }
+      delete S.msEvents[j.sid];
+      done++;
+    }
+    for(const j of jobs.create){
+      try{
+        const ev = await graphCall("POST", "/me/events", token, j.payload);
+        S.msEvents[j.sid] = {id:ev.id, sig:j.sig};
+        done++;
+      }catch(e){ failed++; firstErr = firstErr || (e.message || String(e)); }
+    }
+    for(const j of jobs.update){
+      try{
+        await graphCall("PATCH", "/me/events/" + encodeURIComponent(j.id), token, j.payload);
+        S.msEvents[j.sid].sig = j.sig;
+        done++;
+      }catch(e){ failed++; firstErr = firstErr || (e.message || String(e)); }
+    }
+    logAction("Outlook-Einladungen: " + jobs.create.length + " neu, " + jobs.update.length
+      + " aktualisiert, " + jobs.cancel.length + " abgesagt" + (failed ? ", " + failed + " fehlgeschlagen" : ""));
+    save();
+    toast(failed
+      ? done + " erledigt, " + failed + " fehlgeschlagen (" + firstErr + ") – bitte erneut versuchen."
+      : "Outlook-Termine versendet bzw. aktualisiert (" + done + ").");
+  }catch(e){
+    toast("Outlook-Zugriff nicht möglich: " + (e.message || e) + " – die App-Registrierung braucht die Graph-Berechtigung «Calendars.ReadWrite».");
+  }
+});
+
+/* ---------- Umplanen: Ziehen (Desktop) oder Antippen (Touch) ---------- */
+let moveSid = null;
+async function moveConversation(sid, targetSlotId){
+  if(!guardEdit()) return;
+  const st = S.students.find(x => x.id === sid); if(!st || !S.plan) return;
+  if(S.plan.assignments[sid] === targetSlotId) return;
+  const idx = S.slots.findIndex(sl => sl.id === targetSlotId);
+  const seq = seqFrom(idx, lenOf(sid));
+  const need = reqStaffIds(sid);
+  const problems = [];
+  if(!seq){
+    problems.push("nicht genug aufeinanderfolgende Zeitfenster an diesem Tag (Gespräch braucht " + lenOf(sid) + ")");
+  }else{
+    for(const slId of seq){
+      if(!isStuAvail(sid, slId)) problems.push("das Gespräch ist am " + slotLabel(slotById(slId)) + " als nicht möglich markiert");
+      for(const mid of need){
+        if(!isAvail(mid, slId)){ problems.push(staffName(mid) + " ist am " + slotLabel(slotById(slId)) + " nicht verfügbar"); continue; }
+        for(const other of S.students){
+          if(other.id === sid || !(S.req[other.id]||{})[mid] || !S.plan.assignments[other.id]) continue;
+          const oSeq = assignedSeq(other.id, S.plan.assignments[other.id]) || [S.plan.assignments[other.id]];
+          if(oSeq.includes(slId)) problems.push(staffName(mid) + " ist dann schon im Gespräch " + other.name);
+        }
+      }
+    }
+  }
+  const uniq = [...new Set(problems)];
+  if(uniq.length && !(await ask("Konflikt beim Verschieben von " + st.name + ": "
+      + uniq.slice(0, 4).join("; ") + (uniq.length > 4 ? "; …" : "") + ". Trotzdem auf "
+      + slotLabel(slotById(targetSlotId)) + " fixieren?"))) return;
+  pushUndo();
+  S.fixed[sid] = targetSlotId;
+  logAction("Gespräch «" + st.name + "» auf " + slotLabel(slotById(targetSlotId)) + " verschoben (fixiert)");
+  solvePlan();
+  renderPlan(); save();
+  toast("«" + st.name + "» auf " + slotLabel(slotById(targetSlotId)) + " fixiert – übrige Termine neu berechnet.");
+}
+document.addEventListener("dragstart", ev => {
+  const li = ev.target.closest && ev.target.closest(".slotcard li[data-move]");
+  if(!li) return;
+  ev.dataTransfer.setData("text/plain", li.dataset.move);
+  ev.dataTransfer.effectAllowed = "move";
+});
+document.addEventListener("dragover", ev => {
+  const card = ev.target.closest && ev.target.closest(".slotcard[data-slot]");
+  if(!card) return;
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = "move";
+  card.classList.add("droptarget");
+});
+document.addEventListener("dragleave", ev => {
+  const card = ev.target.closest && ev.target.closest(".slotcard[data-slot]");
+  if(card) card.classList.remove("droptarget");
+});
+document.addEventListener("drop", ev => {
+  const card = ev.target.closest && ev.target.closest(".slotcard[data-slot]");
+  if(!card) return;
+  ev.preventDefault();
+  card.classList.remove("droptarget");
+  const sid = ev.dataTransfer.getData("text/plain");
+  if(sid) moveConversation(sid, card.dataset.slot);
+});
+document.addEventListener("click", ev => {
+  const card = ev.target.closest(".slotcard[data-slot]");
+  const li = ev.target.closest(".slotcard li[data-move]");
+  const clearMoving = () => document.querySelectorAll(".slotcard li.moving").forEach(x => x.classList.remove("moving"));
+  if(moveSid){
+    const sid = moveSid;
+    moveSid = null;
+    clearMoving();
+    // nochmals dasselbe Gespräch angetippt -> Abbruch; sonst zählt die Ziel-Karte
+    if(!(li && li.dataset.move === sid) && card) moveConversation(sid, card.dataset.slot);
+    return;
+  }
+  if(li && canEdit()){
+    moveSid = li.dataset.move;
+    clearMoving();
+    li.classList.add("moving");
+    toast("Jetzt das Ziel-Zeitfenster antippen (nochmals antippen bricht ab).");
+  }
+});
+
+/* ---------- Eltern-Terminwahl (Link erzeugen) ---------- */
+// Freie Sequenzen: alle Beteiligten verfügbar und nicht durch andere Gespräche gebunden
+function freeSeqsFor(sid){
+  const need = reqStaffIds(sid);
+  const busy = {};
+  S.slots.forEach(sl => busy[sl.id] = new Set());
+  if(S.plan){
+    for(const other of S.students){
+      if(other.id === sid) continue;
+      const startId = S.plan.assignments[other.id];
+      if(!startId) continue;
+      const oNeed = reqStaffIds(other.id);
+      for(const slId of (assignedSeq(other.id, startId) || [startId]))
+        if(busy[slId]) oNeed.forEach(mid => busy[slId].add(mid));
+    }
+  }
+  return candidateSeqs(sid).filter(seq => seq.every(slId => need.every(mid => !busy[slId].has(mid))));
+}
+async function bookingLink(sid){
+  if(!guardEdit()) return;
+  const st = S.students.find(x => x.id === sid); if(!st) return;
+  const offers = freeSeqsFor(sid).map(seq => {
+    const a = slotById(seq[0]), b = slotById(seq[seq.length - 1]);
+    return {startId: seq[0], label: fmtDate(a.date) + " · " + a.start + "–" + b.end};
+  }).slice(0, 30);
+  if(!offers.length){ toast("Für " + st.name + " gibt es aktuell kein freies Zeitfenster – bitte Verfügbarkeiten oder Zeitfenster prüfen."); return; }
+  const existing = S.bookings[sid];
+  const token = existing ? existing.token
+    : Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(16).padStart(2, "0")).join("");
+  pushUndo();
+  S.bookings[sid] = {token, offers, student: st.name, created: Date.now(), chosen: (existing || {}).chosen || null};
+  logAction("Eltern-Terminwahl-Link für «" + st.name + "» " + (existing ? "aktualisiert" : "erzeugt") + " (" + offers.length + " Termine zur Auswahl)");
+  save();
+  const base = SYNC.url ? SYNC.url.replace(/api\.php.*$/, "") : location.href.split("#")[0];
+  const link = base + "#buchung=" + token;
+  try{ await navigator.clipboard.writeText(link); }catch(e){}
+  askText("Terminwahl-Link für die Eltern von " + st.name + " (" + offers.length + " Termine zur Auswahl; wird nach der nächsten Synchronisation aktiv – der Link ist bereits in die Zwischenablage kopiert):", link);
+}
+
+/* ---------- Eltern-Terminwahl (Ansicht über den Link) ---------- */
+const bookingToken = (location.hash.match(/buchung=([0-9a-f]{16,64})/i) || [])[1] || null;
+function bookingApiBase(){
+  if(syncConfigured()) return SYNC.url;
+  if(location.protocol === "http:" || location.protocol === "https:") return new URL("api.php", location.href).href;
+  return "";
+}
+async function initBooking(){
+  $("#booking-view").hidden = false;
+  const logo = document.querySelector("header.app .logo");
+  if(logo) $("#booking-logo").src = logo.src;
+  const body = $("#booking-body");
+  const base = bookingApiBase();
+  if(!base){ body.innerHTML = `<div class="err">Dieser Link funktioniert nur über die offizielle Adresse des Gesprächsplaners.</div>`; return; }
+  try{
+    const res = await fetch(base.replace(/\/+$/, "") + "?action=booking_get&token=" + encodeURIComponent(bookingToken));
+    const d = await res.json();
+    if(d.error){ body.innerHTML = `<div class="err">${esc(d.error)}</div>`; return; }
+    renderBooking(d, base, "");
+  }catch(e){
+    body.innerHTML = `<div class="err">Die Termine konnten nicht geladen werden – bitte später erneut versuchen.</div>`;
+  }
+}
+function renderBooking(d, base, errMsg){
+  const body = $("#booking-body");
+  if(d.chosen){
+    body.innerHTML = `<p>Für das Gespräch von <strong>${esc(d.student)}</strong> (${esc(d.project)}) ist folgender Termin vereinbart:</p>
+      <div class="ok">${esc(d.chosen)}</div>
+      <p class="cardhint">Bitte notieren Sie sich den Termin. Falls er nicht mehr passt, melden Sie sich bitte direkt bei der Schule.</p>`;
+    return;
+  }
+  body.innerHTML = (errMsg ? `<div class="err">${esc(errMsg)}</div>` : "") +
+    `<p>Bitte wählen Sie einen Termin für das Gespräch von <strong>${esc(d.student)}</strong> (${esc(d.project)}):</p>` +
+    (d.offers || []).map(o => `<button class="offer" data-start="${esc(o.startId)}">${esc(o.label)}</button>`).join("") +
+    `<p class="cardhint">Mit dem Klick wird der Termin verbindlich reserviert.</p>`;
+  body.querySelectorAll(".offer").forEach(b => b.addEventListener("click", async () => {
+    body.querySelectorAll(".offer").forEach(x => x.disabled = true);
+    try{
+      const res = await fetch(base.replace(/\/+$/, "") + "?action=booking_choose", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({token: bookingToken, startId: b.dataset.start})
+      });
+      const r = await res.json();
+      if(r.ok){ renderBooking({...d, chosen: r.label}, base, ""); }
+      else if(r.offers){ renderBooking({...d, offers: r.offers}, base, r.error || "Dieser Termin wurde soeben anderweitig vergeben – bitte einen anderen wählen."); }
+      else { renderBooking(d, base, r.error || "Die Reservierung hat nicht geklappt – bitte erneut versuchen."); }
+    }catch(e){
+      renderBooking(d, base, "Verbindungsfehler – bitte erneut versuchen.");
+    }
+  }));
+}
+
+/* ---------- PDF-Export ---------- */
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error("Skript konnte nicht geladen werden"));
+    document.head.appendChild(s);
+  });
+}
+let pdfLoading = null;
+function loadPdf(){
+  if(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.API.autoTable) return Promise.resolve();
+  if(!pdfLoading){
+    pdfLoading = loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+      .then(() => loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"))
+      .catch(e => { pdfLoading = null; throw e; });
+  }
+  return pdfLoading;
+}
+$("#btn-export-pdf").addEventListener("click", () => {
+  if(!S.plan){ toast("Bitte zuerst «Termine planen» ausführen."); return; }
+  loadPdf().then(() => {
+    const doc = new window.jspdf.jsPDF({orientation:"landscape", unit:"mm", format:"a4"});
+    const W = doc.internal.pageSize.getWidth();
+    doc.setFillColor(28, 80, 75);
+    doc.rect(0, 0, W, 20, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+    doc.text("Gesprächsplan · " + activeProject().name, 12, 13);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+    doc.text("Stand: " + new Date().toLocaleString("de-CH", {dateStyle:"medium", timeStyle:"short"}), W - 12, 13, {align:"right"});
+    doc.autoTable({
+      head:[PLAN_HEADER], body: planRows(), startY: 26,
+      styles:{font:"helvetica", fontSize:8.5, textColor:[40, 50, 47], cellPadding:2},
+      headStyles:{fillColor:[28, 80, 75], textColor:255, fontStyle:"bold"},
+      alternateRowStyles:{fillColor:[241, 239, 234]},
+      margin:{left:12, right:12}
+    });
+    const n = doc.getNumberOfPages();
+    for(let i = 1; i <= n; i++){
+      doc.setPage(i);
+      doc.setFontSize(8); doc.setTextColor(108, 102, 96);
+      doc.text("Sonnenberg · Gesprächsplaner", 12, doc.internal.pageSize.getHeight() - 8);
+      doc.text("Seite " + i + " / " + n, W - 12, doc.internal.pageSize.getHeight() - 8, {align:"right"});
+    }
+    download("gespraechsplan-" + activeProject().name.replace(/\s+/g, "-").toLowerCase() + ".pdf",
+      doc.output("arraybuffer"), "application/pdf");
+    toast("Gesprächsplan als PDF exportiert.");
+  }).catch(() => toast("PDF-Bibliothek konnte nicht geladen werden – bitte Internetverbindung prüfen."));
+});
+
+/* ---------- Präsenz: Wer arbeitet gerade an diesem Angebot? ---------- */
+async function presencePing(){
+  const el = $("#pb-presence");
+  if(!el) return;
+  if(!syncConfigured() || (ssoConfigured() && !msalAccount) || document.hidden){ el.hidden = true; return; }
+  try{
+    const me = msalAccount ? (msalAccount.name || msalAccount.username) : "lokal";
+    const r = await apiCall("presence", {project: ROOT.active, user: me});
+    const others = (r.others || []).filter(x => x && x !== me);
+    el.hidden = !others.length;
+    if(others.length) el.textContent = "● Ebenfalls gerade hier: " + others.slice(0, 3).join(", ") + (others.length > 3 ? " …" : "");
+  }catch(e){ el.hidden = true; }
+}
+setInterval(presencePing, 30000);
+// Fremde Änderungen zügig übernehmen, auch ohne eigene Bearbeitung
+setInterval(() => { if(syncConfigured() && !document.hidden) syncNow(true); }, 45000);
 
 /* ---------- Excel-Export / -Import (SheetJS, wird bei Bedarf geladen) ---------- */
 let xlsxLoading = null;
@@ -2211,14 +2880,20 @@ $("#gate-logout").addEventListener("click", () => { if(msalApp) msalApp.logoutRe
 const headerLogo = document.querySelector("header.app .logo");
 if(headerLogo) $("#gate-logo").src = headerLogo.src;
 
-renderAll();
-renderAbsWho();
-showTab("daten");
-loadRemoteConfig().then(() => {
-  initMsal();
-  updateAuthUi();
-  if(syncConfigured()) syncNow(true);
-});
+if(bookingToken){
+  // Eltern-Ansicht: nur die Terminwahl, keine Anmeldung, keine Planungsdaten
+  document.title = "Terminwahl · Gesprächsplaner Sonnenberg";
+  initBooking();
+}else{
+  renderAll();
+  renderAbsWho();
+  showTab("daten");
+  loadRemoteConfig().then(() => {
+    initMsal();
+    updateAuthUi();
+    if(syncConfigured()){ syncNow(true); presencePing(); }
+  });
+}
 </script>
 
 
